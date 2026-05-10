@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Square Foot Garden Planner</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #f0ebe0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Header ── */
+.header {
+  background: #2c5f2e;
+  color: white;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  z-index: 10;
+}
+.header h1 { font-size: 1.1rem; font-weight: 600; }
+.header .sfg-tag {
+  background: rgba(255,255,255,0.15);
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+.header .hint { margin-left: auto; font-size: 0.72rem; opacity: 0.65; }
+
+/* ── Layout ── */
+.layout { display: flex; flex: 1; overflow: hidden; }
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 172px;
+  background: white;
+  border-right: 1px solid #ddd6c8;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.sidebar-title {
+  padding: 9px 10px 7px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #999;
+  border-bottom: 1px solid #f0ebe0;
+  flex-shrink: 0;
+}
+.sidebar-list { overflow-y: auto; flex: 1; padding: 5px 6px; }
+
+.section-header {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #bbb;
+  padding: 7px 4px 3px;
+}
+
+.plant-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  margin-bottom: 2px;
+  cursor: grab;
+  border: 1.5px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.plant-item:hover { background: #f5f0e8; border-color: #e0d8cc; }
+.plant-item.dragging-source { opacity: 0.35; }
+
+.pi-emoji { font-size: 1.15rem; width: 22px; text-align: center; flex-shrink: 0; }
+.pi-info { flex: 1; min-width: 0; }
+.pi-name { font-size: 0.73rem; font-weight: 500; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pi-sfg { font-size: 0.61rem; color: #aaa; }
+.pi-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #2c5f2e;
+  background: #e8f5e9;
+  padding: 1px 5px;
+  border-radius: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Content ── */
+.content { flex: 1; overflow: auto; padding: 16px 20px 20px; }
+
+.beds-grid {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 22px;
+  width: fit-content;
+}
+
+/* ── Bed wrapper ── */
+.bed-wrap { display: flex; flex-direction: column; gap: 6px; }
+
+.bed-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 22px;
+}
+
+.bed-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #2c5f2e;
+  cursor: text;
+  border: 1px solid transparent;
+  padding: 1px 4px;
+  border-radius: 3px;
+  outline: none;
+  white-space: nowrap;
+}
+.bed-name:hover { border-color: #ccc; background: white; }
+.bed-name:focus { border-color: #2c5f2e; background: white; }
+
+.bed-stats { font-size: 0.62rem; color: #aaa; white-space: nowrap; }
+
+.bed-clear {
+  font-size: 0.62rem;
+  color: #c0392b;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid #c0392b;
+  white-space: nowrap;
+  user-select: none;
+}
+.bed-wrap:hover .bed-clear { opacity: 0.65; }
+.bed-clear:hover { opacity: 1 !important; background: #fdecea; }
+.bed-dims { font-size: 0.62rem; color: #ccc; margin-left: auto; white-space: nowrap; }
+
+/* ── Bed grid ── */
+.bed {
+  display: grid;
+  grid-template-columns: repeat(6, 82px);
+  grid-template-rows: repeat(3, 82px);
+  gap: 3px;
+  padding: 4px;
+  background: #7a4f28;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  width: fit-content;
+}
+
+/* ── Square foot cell ── */
+.sq-cell {
+  width: 82px;
+  height: 82px;
+  border-radius: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  background: #c8976a;
+  transition: filter 0.1s;
+  overflow: hidden;
+}
+
+.sq-cell.empty {
+  background: rgba(180,120,60,0.45);
+  cursor: default;
+}
+.sq-cell.empty::after {
+  content: '+';
+  font-size: 22px;
+  color: rgba(255,255,255,0.25);
+  font-weight: 300;
+}
+
+.sq-cell.filled {
+  cursor: grab;
+  border: 2px solid transparent;
+}
+.sq-cell.filled:hover { filter: brightness(0.92); }
+
+/* Highlight states during drag */
+.sq-cell.will-place   { outline: 3px solid #27ae60; outline-offset: -3px; }
+.sq-cell.will-replace { outline: 3px solid #e67e22; outline-offset: -3px; }
+
+.sq-cell .cell-emoji { font-size: 28px; line-height: 1; pointer-events: none; }
+.sq-cell .cell-name {
+  font-size: 9px;
+  font-weight: 500;
+  color: rgba(0,0,0,0.6);
+  text-align: center;
+  margin-top: 2px;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 78px;
+  text-overflow: ellipsis;
+}
+.sq-cell .cell-count {
+  font-size: 15px;
+  font-weight: 800;
+  color: rgba(0,0,0,0.75);
+  margin-top: 1px;
+  pointer-events: none;
+  line-height: 1;
+}
+
+.sq-cell .x-btn {
+  display: none;
+  position: absolute;
+  top: 2px; right: 2px;
+  width: 15px; height: 15px;
+  font-size: 11px; line-height: 15px;
+  text-align: center;
+  background: rgba(192,57,43,0.9);
+  color: white;
+  border-radius: 50%;
+  cursor: pointer;
+  font-weight: 700;
+  z-index: 20;
+}
+.sq-cell.filled:hover .x-btn { display: block; }
+
+/* ── Drag ghost ── */
+#drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  width: 82px;
+  height: 82px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.85;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+  border: 2px solid transparent;
+}
+#drag-ghost .g-emoji { font-size: 28px; line-height: 1; }
+#drag-ghost .g-count { font-size: 15px; font-weight: 800; color: rgba(0,0,0,0.7); margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span style="font-size:1.3rem">🌱</span>
+  <h1>Garden Bed Planner</h1>
+  <span class="sfg-tag">Square Foot Gardening</span>
+  <span class="hint">Drag plants into squares &nbsp;·&nbsp; Each square = 1 sq ft &nbsp;·&nbsp; Number = plants per square &nbsp;·&nbsp; Hover + × to remove</span>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-title">Plants</div>
+    <div class="sidebar-list" id="palette"></div>
+  </aside>
+  <div class="content">
+    <div class="beds-grid" id="bedsGrid"></div>
+  </div>
+</div>
+
+<script>
+const GRID_COLS  = 6;
+const GRID_ROWS  = 3;
+const GRID_TOTAL = GRID_COLS * GRID_ROWS; // 18 sq ft per bed
+const CELL_PX    = 82;
+
+/* ── Plant definitions (Square Foot Gardening counts) ── */
+const PLANTS = [
+  // perSqFt = how many plants fit in one 1×1 ft square
+  { id: 'tomato',        name: 'Tomato',        emoji: '🍅', perSqFt: 1,  color: '#c0392b', bg: '#fdecea', cat: 'Fruiting' },
+  { id: 'cherry_tomato', name: 'Cherry Tomato', emoji: '🍅', perSqFt: 1,  color: '#e74c3c', bg: '#fff0f0', cat: 'Fruiting' },
+  { id: 'pepper',        name: 'Pepper',        emoji: '🌶️', perSqFt: 1,  color: '#d35400', bg: '#fef0e7', cat: 'Fruiting' },
+  { id: 'eggplant',      name: 'Eggplant',      emoji: '🍆', perSqFt: 1,  color: '#8e44ad', bg: '#f5eef8', cat: 'Fruiting' },
+  { id: 'zucchini',      name: 'Zucchini',      emoji: '🥒', perSqFt: 1,  color: '#1e8449', bg: '#eafaf1', cat: 'Fruiting' },
+  { id: 'cucumber',      name: 'Cucumber',      emoji: '🥒', perSqFt: 2,  color: '#27ae60', bg: '#edfaf4', cat: 'Fruiting' },
+  { id: 'lettuce',       name: 'Lettuce',       emoji: '🥬', perSqFt: 4,  color: '#2ecc71', bg: '#f0fbf5', cat: 'Leafy greens' },
+  { id: 'spinach',       name: 'Spinach',       emoji: '🍃', perSqFt: 9,  color: '#1e8449', bg: '#e9f7ef', cat: 'Leafy greens' },
+  { id: 'kale',          name: 'Kale',          emoji: '🥦', perSqFt: 1,  color: '#1a5276', bg: '#eaf2fb', cat: 'Leafy greens' },
+  { id: 'broccoli',      name: 'Broccoli',      emoji: '🥦', perSqFt: 1,  color: '#117a65', bg: '#e8f8f5', cat: 'Leafy greens' },
+  { id: 'cabbage',       name: 'Cabbage',       emoji: '🥗', perSqFt: 1,  color: '#229954', bg: '#eafaf1', cat: 'Leafy greens' },
+  { id: 'cauliflower',   name: 'Cauliflower',   emoji: '🥦', perSqFt: 1,  color: '#85929e', bg: '#f2f3f4', cat: 'Leafy greens' },
+  { id: 'carrot',        name: 'Carrot',        emoji: '🥕', perSqFt: 16, color: '#e67e22', bg: '#fef5e7', cat: 'Root vegetables' },
+  { id: 'radish',        name: 'Radish',        emoji: '🌱', perSqFt: 16, color: '#c0392b', bg: '#fdecea', cat: 'Root vegetables' },
+  { id: 'beetroot',      name: 'Beetroot',      emoji: '🟣', perSqFt: 9,  color: '#922b21', bg: '#fdedec', cat: 'Root vegetables' },
+  { id: 'parsnip',       name: 'Parsnip',       emoji: '🌰', perSqFt: 9,  color: '#d4ac0d', bg: '#fef9e7', cat: 'Root vegetables' },
+  { id: 'turnip',        name: 'Turnip',        emoji: '⚪',  perSqFt: 9,  color: '#85929e', bg: '#f2f3f4', cat: 'Root vegetables' },
+  { id: 'onion',         name: 'Onion',         emoji: '🧅', perSqFt: 16, color: '#a04000', bg: '#fef5e7', cat: 'Alliums' },
+  { id: 'garlic',        name: 'Garlic',        emoji: '🧄', perSqFt: 9,  color: '#95a5a6', bg: '#f2f3f4', cat: 'Alliums' },
+  { id: 'leek',          name: 'Leek',          emoji: '🌿', perSqFt: 9,  color: '#1e8449', bg: '#eafaf1', cat: 'Alliums' },
+  { id: 'strawberry',    name: 'Strawberry',    emoji: '🍓', perSqFt: 4,  color: '#c0392b', bg: '#fdecea', cat: 'Fruits' },
+  { id: 'pumpkin',       name: 'Pumpkin',       emoji: '🎃', perSqFt: 1,  color: '#d35400', bg: '#fef0e7', cat: 'Fruits' },
+  { id: 'basil',         name: 'Basil',         emoji: '🌿', perSqFt: 4,  color: '#1abc9c', bg: '#e8f8f5', cat: 'Herbs' },
+  { id: 'parsley',       name: 'Parsley',       emoji: '🌿', perSqFt: 4,  color: '#17a589', bg: '#e8f8f5', cat: 'Herbs' },
+  { id: 'dill',          name: 'Dill',          emoji: '🌾', perSqFt: 4,  color: '#148f77', bg: '#e8f8f5', cat: 'Herbs' },
+  { id: 'chives',        name: 'Chives',        emoji: '🌿', perSqFt: 16, color: '#0e6655', bg: '#e8f8f5', cat: 'Herbs' },
+  { id: 'mint',          name: 'Mint',          emoji: '🌿', perSqFt: 4,  color: '#229954', bg: '#e9f7ef', cat: 'Herbs' },
+  { id: 'rosemary',      name: 'Rosemary',      emoji: '🌿', perSqFt: 1,  color: '#1a5276', bg: '#eaf2fb', cat: 'Herbs' },
+  { id: 'thyme',         name: 'Thyme',         emoji: '🌿', perSqFt: 4,  color: '#5d6d7e', bg: '#eaecee', cat: 'Herbs' },
+  { id: 'peas',          name: 'Peas',          emoji: '🫛', perSqFt: 8,  color: '#52be80', bg: '#eafaf1', cat: 'Legumes' },
+  { id: 'beans',         name: 'Green Beans',   emoji: '🫘', perSqFt: 9,  color: '#2e86c1', bg: '#eaf2fb', cat: 'Legumes' },
+  { id: 'broad_beans',   name: 'Broad Beans',   emoji: '🫘', perSqFt: 4,  color: '#1a5276', bg: '#eaf2fb', cat: 'Legumes' },
+];
+
+/* ── State ── */
+// cells is a flat array of 18 (6×3), each entry null or { type: plantId }
+let beds = Array.from({ length: 4 }, (_, i) => ({
+  id: i,
+  name: `Bed ${i + 1}`,
+  cells: Array(GRID_TOTAL).fill(null),
+}));
+
+/* ── Drag state ── */
+let drag = null; // { plantId, source:'palette'|'cell', srcBedId?, srcCellIdx? }
+let ghostEl = null;
+let sourcePaletteEl = null;
+let highlightedCellEl = null;
+
+/* ── Persistence ── */
+function loadState() {
+  try {
+    const raw = localStorage.getItem('sfg-planner-v1');
+    if (raw) {
+      const d = JSON.parse(raw);
+      if (Array.isArray(d.beds)) beds = d.beds;
+      // Ensure cells array is the right length (backwards compat)
+      beds.forEach(b => {
+        if (!Array.isArray(b.cells) || b.cells.length !== GRID_TOTAL) {
+          b.cells = Array(GRID_TOTAL).fill(null);
+        }
+      });
+    }
+  } catch (_) {}
+}
+function saveState() {
+  localStorage.setItem('sfg-planner-v1', JSON.stringify({ beds }));
+}
+
+/* ── Helpers ── */
+const plantDef = id => PLANTS.find(p => p.id === id);
+const bedById  = id => beds.find(b => b.id === id);
+
+function bedStats(bed) {
+  const filled = bed.cells.filter(Boolean).length;
+  const totalPlants = bed.cells.reduce((s, c) => {
+    if (!c) return s;
+    const d = plantDef(c.type);
+    return s + (d ? d.perSqFt : 0);
+  }, 0);
+  return { filled, totalPlants };
+}
+
+/* ── Drag engine ── */
+function startDrag(e, plantId, source, srcBedId, srcCellIdx) {
+  e.preventDefault();
+  const def = plantDef(plantId);
+  if (!def) return;
+
+  drag = { plantId, source, srcBedId, srcCellIdx };
+
+  // Ghost
+  ghostEl = document.createElement('div');
+  ghostEl.id = 'drag-ghost';
+  ghostEl.style.background = def.bg;
+  ghostEl.style.borderColor = def.color;
+  ghostEl.innerHTML = `
+    <span class="g-emoji">${def.emoji}</span>
+    <span class="g-count">×${def.perSqFt}</span>
+  `;
+  document.body.appendChild(ghostEl);
+
+  positionGhost(e.clientX, e.clientY);
+
+  document.addEventListener('pointermove', onDragMove, { passive: false });
+  document.addEventListener('pointerup',   onDragEnd);
+  document.addEventListener('pointercancel', onDragEnd);
+}
+
+function positionGhost(x, y) {
+  if (!ghostEl) return;
+  ghostEl.style.left = (x - CELL_PX / 2) + 'px';
+  ghostEl.style.top  = (y - CELL_PX / 2) + 'px';
+}
+
+function onDragMove(e) {
+  e.preventDefault();
+  positionGhost(e.clientX, e.clientY);
+  clearHighlight();
+  const cellEl = sqCellAt(e.clientX, e.clientY);
+  if (cellEl) {
+    const occupied = cellEl.classList.contains('filled');
+    cellEl.classList.add(occupied ? 'will-replace' : 'will-place');
+    highlightedCellEl = cellEl;
+  }
+}
+
+function onDragEnd(e) {
+  document.removeEventListener('pointermove', onDragMove);
+  document.removeEventListener('pointerup',   onDragEnd);
+  document.removeEventListener('pointercancel', onDragEnd);
+
+  clearHighlight();
+  if (ghostEl) { ghostEl.remove(); ghostEl = null; }
+  if (sourcePaletteEl) { sourcePaletteEl.classList.remove('dragging-source'); sourcePaletteEl = null; }
+
+  if (!drag) { drag = null; return; }
+
+  const cellEl = sqCellAt(e.clientX, e.clientY);
+  if (cellEl) {
+    const cellIdx = +cellEl.dataset.cellIdx;
+    const bedId   = +cellEl.dataset.bedId;
+
+    // Skip if dropped on same cell it came from
+    const sameCell = drag.source === 'cell' && drag.srcBedId === bedId && drag.srcCellIdx === cellIdx;
+    if (!sameCell) {
+      // Clear source cell if moving
+      if (drag.source === 'cell') {
+        const srcBed = bedById(drag.srcBedId);
+        if (srcBed) srcBed.cells[drag.srcCellIdx] = null;
+      }
+      const bed = bedById(bedId);
+      if (bed) {
+        bed.cells[cellIdx] = { type: drag.plantId };
+        saveState();
+        renderBeds();
+      }
+    }
+  }
+
+  drag = null;
+}
+
+function clearHighlight() {
+  if (highlightedCellEl) {
+    highlightedCellEl.classList.remove('will-place', 'will-replace');
+    highlightedCellEl = null;
+  }
+}
+
+function sqCellAt(x, y) {
+  if (ghostEl) ghostEl.style.visibility = 'hidden';
+  const el = document.elementFromPoint(x, y);
+  if (ghostEl) ghostEl.style.visibility = '';
+  return el ? el.closest('.sq-cell') : null;
+}
+
+/* ── Sidebar ── */
+function renderSidebar() {
+  const el = document.getElementById('palette');
+  el.innerHTML = '';
+  const cats = [...new Set(PLANTS.map(p => p.cat))];
+  cats.forEach(cat => {
+    const h = document.createElement('div');
+    h.className = 'section-header';
+    h.textContent = cat;
+    el.appendChild(h);
+
+    PLANTS.filter(p => p.cat === cat).forEach(plant => {
+      const item = document.createElement('div');
+      item.className = 'plant-item';
+      item.title = `${plant.name} — ${plant.perSqFt} plant${plant.perSqFt > 1 ? 's' : ''} per square foot`;
+      item.innerHTML = `
+        <span class="pi-emoji">${plant.emoji}</span>
+        <div class="pi-info">
+          <div class="pi-name">${plant.name}</div>
+          <div class="pi-sfg">${plant.perSqFt}/sq ft</div>
+        </div>
+        <div class="pi-badge">×${plant.perSqFt}</div>
+      `;
+      item.addEventListener('pointerdown', e => {
+        if (e.button !== 0) return;
+        sourcePaletteEl = item;
+        item.classList.add('dragging-source');
+        startDrag(e, plant.id, 'palette', null, null);
+      });
+      el.appendChild(item);
+    });
+  });
+}
+
+/* ── Beds ── */
+function renderBeds() {
+  const grid = document.getElementById('bedsGrid');
+  grid.innerHTML = '';
+  beds.forEach(bed => grid.appendChild(buildBedWrap(bed)));
+}
+
+function buildBedWrap(bed) {
+  const wrap = document.createElement('div');
+  wrap.className = 'bed-wrap';
+
+  // Label row
+  const labelRow = document.createElement('div');
+  labelRow.className = 'bed-label-row';
+
+  const nameEl = document.createElement('div');
+  nameEl.className = 'bed-name';
+  nameEl.contentEditable = true;
+  nameEl.spellcheck = false;
+  nameEl.textContent = bed.name;
+  nameEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); nameEl.blur(); } });
+  nameEl.addEventListener('blur', () => {
+    const v = nameEl.textContent.trim();
+    bed.name = v || bed.name;
+    nameEl.textContent = bed.name;
+    saveState();
+  });
+
+  const st = bedStats(bed);
+  const statsEl = document.createElement('span');
+  statsEl.className = 'bed-stats';
+  if (st.filled > 0) {
+    statsEl.textContent = `${st.filled}/18 sq ft · ${st.totalPlants} plants`;
+  }
+
+  const clearBtn = document.createElement('span');
+  clearBtn.className = 'bed-clear';
+  clearBtn.textContent = 'Clear';
+  clearBtn.addEventListener('click', () => {
+    if (!bed.cells.some(Boolean)) return;
+    if (confirm(`Clear all plants from "${bed.name}"?`)) {
+      bed.cells = Array(GRID_TOTAL).fill(null);
+      saveState();
+      renderBeds();
+    }
+  });
+
+  const dimsEl = document.createElement('span');
+  dimsEl.className = 'bed-dims';
+  dimsEl.textContent = '6 × 3 sq ft';
+
+  labelRow.append(nameEl, statsEl, clearBtn, dimsEl);
+
+  // Bed (CSS grid)
+  const bedEl = document.createElement('div');
+  bedEl.className = 'bed';
+  bedEl.dataset.bedId = bed.id;
+
+  for (let i = 0; i < GRID_TOTAL; i++) {
+    bedEl.appendChild(buildCell(bed, i));
+  }
+
+  wrap.append(labelRow, bedEl);
+  return wrap;
+}
+
+function buildCell(bed, cellIdx) {
+  const cellData = bed.cells[cellIdx];
+  const el = document.createElement('div');
+  el.className = 'sq-cell';
+  el.dataset.cellIdx = cellIdx;
+  el.dataset.bedId = bed.id;
+
+  if (cellData) {
+    const def = plantDef(cellData.type);
+    if (def) {
+      el.classList.add('filled');
+      el.style.background = def.bg;
+      el.style.borderColor = def.color;
+      el.innerHTML = `
+        <span class="x-btn" title="Remove">×</span>
+        <span class="cell-emoji">${def.emoji}</span>
+        <span class="cell-name">${def.name}</span>
+        <span class="cell-count">×${def.perSqFt}</span>
+      `;
+      el.querySelector('.x-btn').addEventListener('click', e => {
+        e.stopPropagation();
+        bed.cells[cellIdx] = null;
+        saveState();
+        renderBeds();
+      });
+      el.addEventListener('pointerdown', e => {
+        if (e.button !== 0 || e.target.classList.contains('x-btn')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        startDrag(e, cellData.type, 'cell', bed.id, cellIdx);
+      });
+    }
+  } else {
+    el.classList.add('empty');
+  }
+
+  return el;
+}
+
+/* ── Init ── */
+loadState();
+renderSidebar();
+renderBeds();
+</script>
+</body>
+</html>
