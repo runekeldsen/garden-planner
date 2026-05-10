@@ -286,6 +286,7 @@ body {
 .bed-smartfill { font-size: 0.62rem; color: #2c5f2e; cursor: pointer; opacity: 0; transition: opacity 0.2s; padding: 1px 5px; border-radius: 3px; border: 1px solid #2c5f2e; white-space: nowrap; user-select: none; }
 .bed-wrap:hover .bed-smartfill { opacity: 0.7; }
 .bed-smartfill:hover { opacity: 1 !important; background: #e8f5e9; }
+.bed-compass { font-size: 0.58rem; color: #bbb; letter-spacing: 0.04em; display: flex; justify-content: space-between; padding: 1px 4px; }
 </style>
 </head>
 <body>
@@ -504,13 +505,22 @@ function selectBestPlants(candidates, count, alreadyIds) {
   return chosen;
 }
 
-function buildRowCells(plants, n) {
-  if (!plants.length) return Array(n).fill(null);
-  const cells = [];
-  const base = Math.floor(n / plants.length), extra = n % plants.length;
-  plants.forEach((p, i) => {
-    for (let j = 0; j < base + (i < extra ? 1 : 0); j++) cells.push({ type: p.id });
-  });
+// Beds are landscape: left = North, right = South.
+// Tall plants go in left columns so they don't shadow south-side plants.
+// Layout: cols 0-1 = tall (N), cols 2-3 = medium, cols 4-5 = low (S).
+function buildColumnFill(tallPicks, medPicks, lowPicks) {
+  const cells = Array(18).fill(null);
+  const assignZone = (picks, startCol) => {
+    const a = picks[0] || null;
+    const b = picks[1] || picks[0] || null; // repeat first if only one variety
+    for (let row = 0; row < GRID_ROWS; row++) {
+      if (a) cells[row * GRID_COLS + startCol]     = { type: a.id };
+      if (b) cells[row * GRID_COLS + startCol + 1] = { type: b.id };
+    }
+  };
+  assignZone(tallPicks, 0); // cols 0-1
+  assignZone(medPicks,  2); // cols 2-3
+  assignZone(lowPicks,  4); // cols 4-5
   return cells;
 }
 
@@ -520,9 +530,9 @@ function computeFill(month) {
   const med  = ok.filter(p => p.height === 'medium');
   const low  = ok.filter(p => p.height === 'low');
   const tallPicks = selectBestPlants(tall, 2, []);
-  const medPicks  = selectBestPlants(med,  3, tallPicks.map(p => p.id));
+  const medPicks  = selectBestPlants(med,  2, tallPicks.map(p => p.id));
   const allSoFar  = [...tallPicks, ...medPicks].map(p => p.id);
-  const lowPicks  = selectBestPlants(low,  4, allSoFar);
+  const lowPicks  = selectBestPlants(low,  2, allSoFar);
   return { tallPicks, medPicks, lowPicks };
 }
 
@@ -551,7 +561,7 @@ function refreshSfPreview() {
       : `<span class="sf-row-plants sf-empty">none available yet</span>`;
     return `<div class="sf-row-preview"><span class="sf-row-dir">${dir}</span>${names}</div>`;
   };
-  el.innerHTML = row('↑ back (tall)', tallPicks) + row('middle', medPicks) + row('↓ front (low)', lowPicks);
+  el.innerHTML = row('← N (tall)', tallPicks) + row('middle', medPicks) + row('S → (low)', lowPicks);
 }
 
 function applySfFill() {
@@ -559,12 +569,7 @@ function applySfFill() {
   const bed = bedById(sfBedId);
   if (!bed) return;
   if (bed.cells.some(Boolean) && !confirm(`Replace all plants in "${bed.name}"?`)) return;
-  const { tallPicks, medPicks, lowPicks } = sfPicks;
-  bed.cells = [
-    ...buildRowCells(tallPicks, 6),
-    ...buildRowCells(medPicks,  6),
-    ...buildRowCells(lowPicks,  6),
-  ];
+  bed.cells = buildColumnFill(sfPicks.tallPicks, sfPicks.medPicks, sfPicks.lowPicks);
   saveState();
   renderBeds();
   document.getElementById('sf-overlay').classList.add('hidden');
@@ -789,7 +794,11 @@ function buildBedWrap(bed) {
     bedEl.appendChild(buildCell(bed, i));
   }
 
-  wrap.append(labelRow, bedEl);
+  const compassEl = document.createElement('div');
+  compassEl.className = 'bed-compass';
+  compassEl.innerHTML = '<span>← North</span><span>South →</span>';
+
+  wrap.append(labelRow, bedEl, compassEl);
   return wrap;
 }
 
