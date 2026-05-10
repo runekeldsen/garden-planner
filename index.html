@@ -264,6 +264,28 @@ body {
 }
 #drag-ghost .g-emoji { display: flex; align-items: center; justify-content: center; }
 #drag-ghost .g-count { font-size: 15px; font-weight: 800; color: rgba(0,0,0,0.7); margin-top: 2px; }
+
+/* ── Smart Fill ── */
+.sf-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 200; }
+.sf-overlay.hidden { display: none; }
+.sf-card { background: #fff; border-radius: 10px; padding: 20px 22px; width: 360px; max-width: 90vw; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+.sf-title { font-size: 0.95rem; font-weight: 700; color: #2c5f2e; margin-bottom: 12px; }
+.sf-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #aaa; display: block; margin-bottom: 5px; }
+.sf-select { width: 100%; padding: 6px 8px; border: 1.5px solid #ddd; border-radius: 5px; font-size: 0.85rem; color: #333; margin-bottom: 10px; }
+.sf-row-preview { display: flex; align-items: baseline; gap: 8px; padding: 5px 0; border-bottom: 1px solid #f5f0e8; font-size: 0.78rem; }
+.sf-row-preview:last-child { border-bottom: none; }
+.sf-row-dir { color: #bbb; font-size: 0.62rem; flex-shrink: 0; width: 84px; }
+.sf-row-plants { color: #333; font-weight: 500; }
+.sf-empty { color: #bbb !important; font-weight: 400 !important; font-style: italic; }
+.sf-no-plants { color: #c0392b; font-size: 0.78rem; padding: 8px 0; text-align: center; }
+.sf-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+.sf-btn { padding: 6px 14px; border-radius: 5px; font-size: 0.8rem; cursor: pointer; border: 1.5px solid #ddd; background: #fff; color: #555; }
+.sf-btn:hover { background: #f5f5f5; }
+.sf-btn.primary { background: #2c5f2e; border-color: #2c5f2e; color: #fff; font-weight: 600; }
+.sf-btn.primary:hover { background: #3a7d3c; }
+.bed-smartfill { font-size: 0.62rem; color: #2c5f2e; cursor: pointer; opacity: 0; transition: opacity 0.2s; padding: 1px 5px; border-radius: 3px; border: 1px solid #2c5f2e; white-space: nowrap; user-select: none; }
+.bed-wrap:hover .bed-smartfill { opacity: 0.7; }
+.bed-smartfill:hover { opacity: 1 !important; background: #e8f5e9; }
 </style>
 </head>
 <body>
@@ -324,42 +346,76 @@ function plantIcon(def, size) {
   return `<img src="${url}" width="${size}" height="${size}" alt="${def.name}" style="display:block">`;
 }
 
-/* ── Plant definitions (Square Foot Gardening counts) ── */
+/* ── Plant definitions ── */
+// height: 'tall' >~80cm | 'medium' 40–80cm | 'low' <40cm  →  Smart Fill puts tall at back, low at front
+// outdoorMonth: earliest month to plant directly outdoors in Denmark (last frost ~mid-May)
 const PLANTS = [
-  // perSqFt = how many plants fit in one 1×1 ft square
-  { id: 'tomato',        name: 'Tomato',        emoji: '🍅', perSqFt: 1,  color: '#c0392b', bg: '#fdecea', cat: 'Fruiting' },
-  { id: 'cherry_tomato', name: 'Cherry Tomato', emoji: '🍅', perSqFt: 1,  color: '#e74c3c', bg: '#fff0f0', cat: 'Fruiting' },
-  { id: 'pepper',        name: 'Pepper',        emoji: '🌶️', perSqFt: 1,  color: '#d35400', bg: '#fef0e7', cat: 'Fruiting' },
-  { id: 'eggplant',      name: 'Eggplant',      emoji: '🍆', perSqFt: 1,  color: '#8e44ad', bg: '#f5eef8', cat: 'Fruiting' },
-  { id: 'zucchini',      name: 'Zucchini',      emoji: '🥒', perSqFt: 1,  color: '#1e8449', bg: '#eafaf1', cat: 'Fruiting' },
-  { id: 'cucumber',      name: 'Cucumber',      emoji: '🥒', perSqFt: 2,  color: '#27ae60', bg: '#edfaf4', cat: 'Fruiting' },
-  { id: 'lettuce',       name: 'Lettuce',       emoji: '🥬', perSqFt: 4,  color: '#2ecc71', bg: '#f0fbf5', cat: 'Leafy greens' },
-  { id: 'spinach',       name: 'Spinach',       emoji: '🍃', perSqFt: 9,  color: '#1e8449', bg: '#e9f7ef', cat: 'Leafy greens' },
-  { id: 'kale',          name: 'Kale',          emoji: '🥦', perSqFt: 1,  color: '#1a5276', bg: '#eaf2fb', cat: 'Leafy greens' },
-  { id: 'broccoli',      name: 'Broccoli',      emoji: '🥦', perSqFt: 1,  color: '#117a65', bg: '#e8f8f5', cat: 'Leafy greens' },
-  { id: 'cabbage',       name: 'Cabbage',       emoji: '🥗', perSqFt: 1,  color: '#229954', bg: '#eafaf1', cat: 'Leafy greens' },
-  { id: 'cauliflower',   name: 'Cauliflower',   emoji: '🥦', perSqFt: 1,  color: '#85929e', bg: '#f2f3f4', cat: 'Leafy greens' },
-  { id: 'carrot',        name: 'Carrot',        emoji: '🥕', perSqFt: 16, color: '#e67e22', bg: '#fef5e7', cat: 'Root vegetables' },
-  { id: 'radish',        name: 'Radish',        emoji: '🌱', perSqFt: 16, color: '#c0392b', bg: '#fdecea', cat: 'Root vegetables' },
-  { id: 'beetroot',      name: 'Beetroot',      emoji: '🟣', perSqFt: 9,  color: '#922b21', bg: '#fdedec', cat: 'Root vegetables' },
-  { id: 'parsnip',       name: 'Parsnip',       emoji: '🌰', perSqFt: 9,  color: '#d4ac0d', bg: '#fef9e7', cat: 'Root vegetables' },
-  { id: 'turnip',        name: 'Turnip',        emoji: '⚪',  perSqFt: 9,  color: '#85929e', bg: '#f2f3f4', cat: 'Root vegetables' },
-  { id: 'onion',         name: 'Onion',         emoji: '🧅', perSqFt: 16, color: '#a04000', bg: '#fef5e7', cat: 'Alliums' },
-  { id: 'garlic',        name: 'Garlic',        emoji: '🧄', perSqFt: 9,  color: '#95a5a6', bg: '#f2f3f4', cat: 'Alliums' },
-  { id: 'leek',          name: 'Leek',          emoji: '🌿', perSqFt: 9,  color: '#1e8449', bg: '#eafaf1', cat: 'Alliums' },
-  { id: 'strawberry',    name: 'Strawberry',    emoji: '🍓', perSqFt: 4,  color: '#c0392b', bg: '#fdecea', cat: 'Fruits' },
-  { id: 'pumpkin',       name: 'Pumpkin',       emoji: '🎃', perSqFt: 1,  color: '#d35400', bg: '#fef0e7', cat: 'Fruits' },
-  { id: 'asparagus',     name: 'Asparagus',     emoji: '🌾', perSqFt: 1,  color: '#4a7c3f', bg: '#eaf4e8', cat: 'Leafy greens' },
-  { id: 'basil',         name: 'Basil',         emoji: '🌿', perSqFt: 4,  color: '#1abc9c', bg: '#e8f8f5', cat: 'Herbs' },
-  { id: 'parsley',       name: 'Parsley',       emoji: '🌿', perSqFt: 4,  color: '#17a589', bg: '#e8f8f5', cat: 'Herbs' },
-  { id: 'dill',          name: 'Dill',          emoji: '🌾', perSqFt: 4,  color: '#148f77', bg: '#e8f8f5', cat: 'Herbs' },
-  { id: 'chives',        name: 'Chives',        emoji: '🌿', perSqFt: 16, color: '#0e6655', bg: '#e8f8f5', cat: 'Herbs' },
-  { id: 'mint',          name: 'Mint',          emoji: '🌿', perSqFt: 4,  color: '#229954', bg: '#e9f7ef', cat: 'Herbs' },
-  { id: 'rosemary',      name: 'Rosemary',      emoji: '🌿', perSqFt: 1,  color: '#1a5276', bg: '#eaf2fb', cat: 'Herbs' },
-  { id: 'thyme',         name: 'Thyme',         emoji: '🌿', perSqFt: 4,  color: '#5d6d7e', bg: '#eaecee', cat: 'Herbs' },
-  { id: 'peas',          name: 'Peas',          emoji: '🫛', perSqFt: 8,  color: '#52be80', bg: '#eafaf1', cat: 'Legumes' },
-  { id: 'beans',         name: 'Green Beans',   emoji: '🫘', perSqFt: 9,  color: '#2e86c1', bg: '#eaf2fb', cat: 'Legumes' },
-  { id: 'broad_beans',   name: 'Broad Beans',   emoji: '🫘', perSqFt: 4,  color: '#1a5276', bg: '#eaf2fb', cat: 'Legumes' },
+  { id: 'tomato',        name: 'Tomato',        emoji: '🍅', perSqFt: 1,  color: '#c0392b', bg: '#fdecea', cat: 'Fruiting',
+    height: 'tall',   outdoorMonth: 6, companions: ['basil','parsley','carrot','spinach','garlic','chives','asparagus'], avoid: ['broccoli','cabbage','cauliflower','kale','dill'] },
+  { id: 'cherry_tomato', name: 'Cherry Tomato', emoji: '🍅', perSqFt: 1,  color: '#e74c3c', bg: '#fff0f0', cat: 'Fruiting',
+    height: 'tall',   outdoorMonth: 6, companions: ['basil','parsley','carrot','spinach','garlic','chives'], avoid: ['broccoli','cabbage','cauliflower','kale'] },
+  { id: 'pepper',        name: 'Pepper',        emoji: '🌶️', perSqFt: 1,  color: '#d35400', bg: '#fef0e7', cat: 'Fruiting',
+    height: 'tall',   outdoorMonth: 6, companions: ['basil','carrot','spinach','tomato'], avoid: ['beans'] },
+  { id: 'eggplant',      name: 'Eggplant',      emoji: '🍆', perSqFt: 1,  color: '#8e44ad', bg: '#f5eef8', cat: 'Fruiting',
+    height: 'tall',   outdoorMonth: 6, companions: ['basil','pepper','spinach'], avoid: [] },
+  { id: 'zucchini',      name: 'Zucchini',      emoji: '🥒', perSqFt: 1,  color: '#1e8449', bg: '#eafaf1', cat: 'Fruiting',
+    height: 'medium', outdoorMonth: 6, companions: ['dill','beans','radish','basil'], avoid: [] },
+  { id: 'cucumber',      name: 'Cucumber',      emoji: '🥒', perSqFt: 2,  color: '#27ae60', bg: '#edfaf4', cat: 'Fruiting',
+    height: 'medium', outdoorMonth: 6, companions: ['dill','beans','radish','lettuce'], avoid: ['broccoli','cauliflower','cabbage'] },
+  { id: 'lettuce',       name: 'Lettuce',       emoji: '🥬', perSqFt: 4,  color: '#2ecc71', bg: '#f0fbf5', cat: 'Leafy greens',
+    height: 'low',    outdoorMonth: 4, companions: ['carrot','radish','strawberry','onion','spinach','chives'], avoid: [] },
+  { id: 'spinach',       name: 'Spinach',       emoji: '🍃', perSqFt: 9,  color: '#1e8449', bg: '#e9f7ef', cat: 'Leafy greens',
+    height: 'low',    outdoorMonth: 3, companions: ['tomato','strawberry','lettuce','peas','radish'], avoid: [] },
+  { id: 'kale',          name: 'Kale',          emoji: '🥦', perSqFt: 1,  color: '#1a5276', bg: '#eaf2fb', cat: 'Leafy greens',
+    height: 'medium', outdoorMonth: 5, companions: ['onion','garlic','beetroot','lettuce','thyme'], avoid: ['tomato','beans','strawberry'] },
+  { id: 'broccoli',      name: 'Broccoli',      emoji: '🥦', perSqFt: 1,  color: '#117a65', bg: '#e8f8f5', cat: 'Leafy greens',
+    height: 'medium', outdoorMonth: 5, companions: ['onion','garlic','rosemary','thyme','mint'], avoid: ['tomato','beans','strawberry','pepper'] },
+  { id: 'cabbage',       name: 'Cabbage',       emoji: '🥗', perSqFt: 1,  color: '#229954', bg: '#eafaf1', cat: 'Leafy greens',
+    height: 'medium', outdoorMonth: 5, companions: ['dill','rosemary','thyme','onion','mint'], avoid: ['tomato','beans','strawberry'] },
+  { id: 'cauliflower',   name: 'Cauliflower',   emoji: '🥦', perSqFt: 1,  color: '#85929e', bg: '#f2f3f4', cat: 'Leafy greens',
+    height: 'medium', outdoorMonth: 5, companions: ['onion','garlic','dill','thyme'], avoid: ['tomato','beans','strawberry'] },
+  { id: 'carrot',        name: 'Carrot',        emoji: '🥕', perSqFt: 16, color: '#e67e22', bg: '#fef5e7', cat: 'Root vegetables',
+    height: 'low',    outdoorMonth: 4, companions: ['leek','onion','rosemary','chives','lettuce','peas','tomato'], avoid: ['dill','parsnip'] },
+  { id: 'radish',        name: 'Radish',        emoji: '🌱', perSqFt: 16, color: '#c0392b', bg: '#fdecea', cat: 'Root vegetables',
+    height: 'low',    outdoorMonth: 4, companions: ['carrot','lettuce','cucumber','spinach','peas'], avoid: [] },
+  { id: 'beetroot',      name: 'Beetroot',      emoji: '🟣', perSqFt: 9,  color: '#922b21', bg: '#fdedec', cat: 'Root vegetables',
+    height: 'low',    outdoorMonth: 4, companions: ['onion','garlic','cabbage','lettuce','leek'], avoid: ['beans'] },
+  { id: 'parsnip',       name: 'Parsnip',       emoji: '🌰', perSqFt: 9,  color: '#d4ac0d', bg: '#fef9e7', cat: 'Root vegetables',
+    height: 'low',    outdoorMonth: 4, companions: ['peas','pepper'], avoid: ['carrot'] },
+  { id: 'turnip',        name: 'Turnip',        emoji: '⚪',  perSqFt: 9,  color: '#85929e', bg: '#f2f3f4', cat: 'Root vegetables',
+    height: 'low',    outdoorMonth: 4, companions: ['peas','spinach'], avoid: [] },
+  { id: 'onion',         name: 'Onion',         emoji: '🧅', perSqFt: 16, color: '#a04000', bg: '#fef5e7', cat: 'Alliums',
+    height: 'low',    outdoorMonth: 3, companions: ['carrot','lettuce','beetroot','tomato'], avoid: ['beans','peas'] },
+  { id: 'garlic',        name: 'Garlic',        emoji: '🧄', perSqFt: 9,  color: '#95a5a6', bg: '#f2f3f4', cat: 'Alliums',
+    height: 'low',    outdoorMonth: 3, companions: ['tomato','cabbage','carrot','rosemary'], avoid: ['beans','peas'] },
+  { id: 'leek',          name: 'Leek',          emoji: '🌿', perSqFt: 9,  color: '#1e8449', bg: '#eafaf1', cat: 'Alliums',
+    height: 'medium', outdoorMonth: 5, companions: ['carrot','spinach','beetroot'], avoid: [] },
+  { id: 'strawberry',    name: 'Strawberry',    emoji: '🍓', perSqFt: 4,  color: '#c0392b', bg: '#fdecea', cat: 'Fruits',
+    height: 'low',    outdoorMonth: 5, companions: ['lettuce','spinach','thyme','chives'], avoid: ['broccoli','cabbage','cauliflower','kale'] },
+  { id: 'pumpkin',       name: 'Pumpkin',       emoji: '🎃', perSqFt: 1,  color: '#d35400', bg: '#fef0e7', cat: 'Fruits',
+    height: 'tall',   outdoorMonth: 6, companions: ['beans','radish'], avoid: [] },
+  { id: 'asparagus',     name: 'Asparagus',     emoji: '🌾', perSqFt: 1,  color: '#4a7c3f', bg: '#eaf4e8', cat: 'Leafy greens',
+    height: 'tall',   outdoorMonth: 5, companions: ['tomato','parsley','basil'], avoid: ['onion','garlic'] },
+  { id: 'basil',         name: 'Basil',         emoji: '🌿', perSqFt: 4,  color: '#1abc9c', bg: '#e8f8f5', cat: 'Herbs',
+    height: 'low',    outdoorMonth: 6, companions: ['tomato','pepper','asparagus','zucchini'], avoid: ['rosemary'] },
+  { id: 'parsley',       name: 'Parsley',       emoji: '🌿', perSqFt: 4,  color: '#17a589', bg: '#e8f8f5', cat: 'Herbs',
+    height: 'low',    outdoorMonth: 6, companions: ['tomato','asparagus','carrot'], avoid: ['mint'] },
+  { id: 'dill',          name: 'Dill',          emoji: '🌾', perSqFt: 4,  color: '#148f77', bg: '#e8f8f5', cat: 'Herbs',
+    height: 'tall',   outdoorMonth: 6, companions: ['cucumber','zucchini','cabbage','lettuce'], avoid: ['carrot','tomato'] },
+  { id: 'chives',        name: 'Chives',        emoji: '🌿', perSqFt: 16, color: '#0e6655', bg: '#e8f8f5', cat: 'Herbs',
+    height: 'low',    outdoorMonth: 5, companions: ['carrot','tomato','strawberry','lettuce'], avoid: [] },
+  { id: 'mint',          name: 'Mint',          emoji: '🌿', perSqFt: 4,  color: '#229954', bg: '#e9f7ef', cat: 'Herbs',
+    height: 'medium', outdoorMonth: 6, companions: ['tomato','broccoli','cabbage'], avoid: ['parsley'] },
+  { id: 'rosemary',      name: 'Rosemary',      emoji: '🌿', perSqFt: 1,  color: '#1a5276', bg: '#eaf2fb', cat: 'Herbs',
+    height: 'medium', outdoorMonth: 5, companions: ['broccoli','beans','carrot','cabbage','garlic'], avoid: ['basil'] },
+  { id: 'thyme',         name: 'Thyme',         emoji: '🌿', perSqFt: 4,  color: '#5d6d7e', bg: '#eaecee', cat: 'Herbs',
+    height: 'low',    outdoorMonth: 5, companions: ['strawberry','broccoli','cabbage','cauliflower','kale'], avoid: [] },
+  { id: 'peas',          name: 'Peas',          emoji: '🫛', perSqFt: 8,  color: '#52be80', bg: '#eafaf1', cat: 'Legumes',
+    height: 'tall',   outdoorMonth: 4, companions: ['carrot','turnip','radish','spinach','lettuce'], avoid: ['onion','garlic'] },
+  { id: 'beans',         name: 'Green Beans',   emoji: '🫘', perSqFt: 9,  color: '#2e86c1', bg: '#eaf2fb', cat: 'Legumes',
+    height: 'medium', outdoorMonth: 6, companions: ['carrot','cucumber','zucchini','radish'], avoid: ['onion','garlic','broccoli','cabbage','cauliflower'] },
+  { id: 'broad_beans',   name: 'Broad Beans',   emoji: '🫘', perSqFt: 4,  color: '#1a5276', bg: '#eaf2fb', cat: 'Legumes',
+    height: 'tall',   outdoorMonth: 3, companions: ['carrot','beetroot','spinach','peas'], avoid: ['onion','garlic'] },
 ];
 
 /* ── State ── */
@@ -408,6 +464,134 @@ function bedStats(bed) {
     return s + (d ? d.perSqFt : 0);
   }, 0);
   return { filled, totalPlants };
+}
+
+/* ── Smart Fill ── */
+const MONTH_SHORT = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function companionScore(plant, selectedIds) {
+  let score = 0;
+  selectedIds.forEach(id => {
+    if (plant.companions.includes(id)) score += 2;
+    if (plant.avoid.includes(id))      score -= 4;
+    const other = plantDef(id);
+    if (other) {
+      if (other.companions.includes(plant.id)) score += 1;
+      if (other.avoid.includes(plant.id))      score -= 4;
+    }
+  });
+  return score;
+}
+
+function selectBestPlants(candidates, count, alreadyIds) {
+  // Shuffle first so ties produce variety across calls
+  const pool = [...candidates].sort(() => Math.random() - 0.5);
+  const chosen = [];
+  while (chosen.length < count && pool.length > 0) {
+    const ctx = [...alreadyIds, ...chosen.map(p => p.id)];
+    let best = -1, bestScore = -Infinity;
+    pool.forEach((p, i) => {
+      const s = companionScore(p, ctx);
+      if (s > bestScore) { bestScore = s; best = i; }
+    });
+    if (best === -1) break;
+    if (bestScore >= -2 || chosen.length === 0) {
+      chosen.push(pool.splice(best, 1)[0]);
+    } else {
+      break; // remaining plants all conflict
+    }
+  }
+  return chosen;
+}
+
+function buildRowCells(plants, n) {
+  if (!plants.length) return Array(n).fill(null);
+  const cells = [];
+  const base = Math.floor(n / plants.length), extra = n % plants.length;
+  plants.forEach((p, i) => {
+    for (let j = 0; j < base + (i < extra ? 1 : 0); j++) cells.push({ type: p.id });
+  });
+  return cells;
+}
+
+function computeFill(month) {
+  const ok   = PLANTS.filter(p => p.outdoorMonth <= month);
+  const tall = ok.filter(p => p.height === 'tall');
+  const med  = ok.filter(p => p.height === 'medium');
+  const low  = ok.filter(p => p.height === 'low');
+  const tallPicks = selectBestPlants(tall, 2, []);
+  const medPicks  = selectBestPlants(med,  3, tallPicks.map(p => p.id));
+  const allSoFar  = [...tallPicks, ...medPicks].map(p => p.id);
+  const lowPicks  = selectBestPlants(low,  4, allSoFar);
+  return { tallPicks, medPicks, lowPicks };
+}
+
+let sfBedId = null, sfPicks = null;
+
+function openSmartFill(bed) {
+  sfBedId = bed.id;
+  document.getElementById('sf-bed-name').textContent = bed.name;
+  document.getElementById('sf-month').value = String(new Date().getMonth() + 1);
+  refreshSfPreview();
+  document.getElementById('sf-overlay').classList.remove('hidden');
+}
+
+function refreshSfPreview() {
+  const month = +document.getElementById('sf-month').value;
+  sfPicks = computeFill(month);
+  const { tallPicks, medPicks, lowPicks } = sfPicks;
+  const el = document.getElementById('sf-preview');
+  if (!tallPicks.length && !medPicks.length && !lowPicks.length) {
+    el.innerHTML = `<p class="sf-no-plants">No plants can go outside in Denmark this month.</p>`;
+    return;
+  }
+  const row = (dir, picks) => {
+    const names = picks.length
+      ? `<span class="sf-row-plants">${picks.map(p => p.name).join(', ')}</span>`
+      : `<span class="sf-row-plants sf-empty">none available yet</span>`;
+    return `<div class="sf-row-preview"><span class="sf-row-dir">${dir}</span>${names}</div>`;
+  };
+  el.innerHTML = row('↑ back (tall)', tallPicks) + row('middle', medPicks) + row('↓ front (low)', lowPicks);
+}
+
+function applySfFill() {
+  if (!sfPicks) return;
+  const bed = bedById(sfBedId);
+  if (!bed) return;
+  if (bed.cells.some(Boolean) && !confirm(`Replace all plants in "${bed.name}"?`)) return;
+  const { tallPicks, medPicks, lowPicks } = sfPicks;
+  bed.cells = [
+    ...buildRowCells(tallPicks, 6),
+    ...buildRowCells(medPicks,  6),
+    ...buildRowCells(lowPicks,  6),
+  ];
+  saveState();
+  renderBeds();
+  document.getElementById('sf-overlay').classList.add('hidden');
+}
+
+function initSfModal() {
+  const el = document.createElement('div');
+  el.id = 'sf-overlay';
+  el.className = 'sf-overlay hidden';
+  const opts = [3,4,5,6,7,8,9].map(m => `<option value="${m}">${MONTH_SHORT[m]}</option>`).join('');
+  el.innerHTML = `<div class="sf-card">
+    <div class="sf-title">Smart Fill &mdash; <span id="sf-bed-name"></span></div>
+    <label class="sf-label" for="sf-month">Planting season (Denmark)</label>
+    <select id="sf-month" class="sf-select">${opts}</select>
+    <div id="sf-preview"></div>
+    <div class="sf-footer">
+      <button class="sf-btn" id="sf-cancel">Cancel</button>
+      <button class="sf-btn" id="sf-shuffle">↺ Shuffle</button>
+      <button class="sf-btn primary" id="sf-apply">Fill Bed</button>
+    </div>
+  </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click', e => { if (e.target === el) el.classList.add('hidden'); });
+  document.getElementById('sf-cancel').addEventListener('click', () => el.classList.add('hidden'));
+  document.getElementById('sf-month').addEventListener('change', refreshSfPreview);
+  document.getElementById('sf-shuffle').addEventListener('click', refreshSfPreview);
+  document.getElementById('sf-apply').addEventListener('click', applySfFill);
 }
 
 /* ── Drag engine ── */
@@ -523,7 +707,7 @@ function renderSidebar() {
         <span class="pi-emoji">${plantIcon(plant, 22)}</span>
         <div class="pi-info">
           <div class="pi-name">${plant.name}</div>
-          <div class="pi-sfg">${plant.perSqFt}/sq ft</div>
+          <div class="pi-sfg">${plant.perSqFt}/sq ft · out ${MONTH_SHORT[plant.outdoorMonth]}+</div>
         </div>
         <div class="pi-badge">×${plant.perSqFt}</div>
       `;
@@ -589,7 +773,12 @@ function buildBedWrap(bed) {
   dimsEl.className = 'bed-dims';
   dimsEl.textContent = '6 × 3 sq ft';
 
-  labelRow.append(nameEl, statsEl, clearBtn, dimsEl);
+  const smartBtn = document.createElement('span');
+  smartBtn.className = 'bed-smartfill';
+  smartBtn.textContent = '⟳ Smart Fill';
+  smartBtn.addEventListener('click', () => openSmartFill(bed));
+
+  labelRow.append(nameEl, statsEl, clearBtn, smartBtn, dimsEl);
 
   // Bed (CSS grid)
   const bedEl = document.createElement('div');
@@ -647,6 +836,7 @@ function buildCell(bed, cellIdx) {
 loadState();
 renderSidebar();
 renderBeds();
+initSfModal();
 </script>
 </body>
 </html>
