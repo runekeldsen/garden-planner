@@ -287,6 +287,16 @@ body {
 .bed-wrap:hover .bed-smartfill { opacity: 0.7; }
 .bed-smartfill:hover { opacity: 1 !important; background: #e8f5e9; }
 .bed-compass { font-size: 0.58rem; color: #bbb; letter-spacing: 0.04em; display: flex; justify-content: space-between; padding: 1px 4px; }
+
+/* ── Plant marking ── */
+.pi-dot { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid #ccc; flex-shrink: 0; cursor: pointer; transition: background 0.12s, border-color 0.12s; margin-right: 1px; }
+.pi-dot.marked { background: #2c5f2e; border-color: #2c5f2e; }
+.plant-item:hover .pi-dot:not(.marked) { border-color: #888; }
+.plant-item.fav { background: #f0fbf5; border-color: #c8e6c9 !important; }
+.sidebar-fav-count { font-size: 0.6rem; color: #888; font-weight: 400; text-transform: none; letter-spacing: 0; }
+.sidebar-fav-clear { font-size: 0.6rem; color: #c0392b; cursor: pointer; margin-left: 6px; opacity: 0.7; }
+.sidebar-fav-clear:hover { opacity: 1; }
+.sf-using { font-size: 0.68rem; color: #888; margin-bottom: 8px; }
 </style>
 </head>
 <body>
@@ -427,6 +437,9 @@ let beds = Array.from({ length: 4 }, (_, i) => ({
   cells: Array(GRID_TOTAL).fill(null),
 }));
 
+/* ── Marked plants (used by Smart Fill when non-empty) ── */
+let favPlants = new Set();
+
 /* ── Drag state ── */
 let drag = null; // { plantId, source:'palette'|'cell', srcBedId?, srcCellIdx? }
 let ghostEl = null;
@@ -440,6 +453,7 @@ function loadState() {
     if (raw) {
       const d = JSON.parse(raw);
       if (Array.isArray(d.beds)) beds = d.beds;
+      if (Array.isArray(d.favPlants)) favPlants = new Set(d.favPlants);
       // Ensure cells array is the right length (backwards compat)
       beds.forEach(b => {
         if (!Array.isArray(b.cells) || b.cells.length !== GRID_TOTAL) {
@@ -450,7 +464,7 @@ function loadState() {
   } catch (_) {}
 }
 function saveState() {
-  localStorage.setItem('sfg-planner-v1', JSON.stringify({ beds }));
+  localStorage.setItem('sfg-planner-v1', JSON.stringify({ beds, favPlants: [...favPlants] }));
 }
 
 /* ── Helpers ── */
@@ -525,7 +539,8 @@ function buildColumnFill(tallPicks, medPicks, lowPicks) {
 }
 
 function computeFill(month) {
-  const ok   = PLANTS.filter(p => p.outdoorMonth <= month);
+  const source = favPlants.size > 0 ? PLANTS.filter(p => favPlants.has(p.id)) : PLANTS;
+  const ok   = source.filter(p => p.outdoorMonth <= month);
   const tall = ok.filter(p => p.height === 'tall');
   const med  = ok.filter(p => p.height === 'medium');
   const low  = ok.filter(p => p.height === 'low');
@@ -550,6 +565,10 @@ function refreshSfPreview() {
   const month = +document.getElementById('sf-month').value;
   sfPicks = computeFill(month);
   const { tallPicks, medPicks, lowPicks } = sfPicks;
+  const usingEl = document.getElementById('sf-using');
+  if (usingEl) usingEl.textContent = favPlants.size > 0
+    ? `Using ${favPlants.size} marked plant${favPlants.size !== 1 ? 's' : ''}`
+    : 'Using all plants';
   const el = document.getElementById('sf-preview');
   if (!tallPicks.length && !medPicks.length && !lowPicks.length) {
     el.innerHTML = `<p class="sf-no-plants">No plants can go outside in Denmark this month.</p>`;
@@ -584,6 +603,7 @@ function initSfModal() {
     <div class="sf-title">Smart Fill &mdash; <span id="sf-bed-name"></span></div>
     <label class="sf-label" for="sf-month">Planting season (Denmark)</label>
     <select id="sf-month" class="sf-select">${opts}</select>
+    <div id="sf-using" class="sf-using"></div>
     <div id="sf-preview"></div>
     <div class="sf-footer">
       <button class="sf-btn" id="sf-cancel">Cancel</button>
@@ -695,6 +715,21 @@ function sqCellAt(x, y) {
 
 /* ── Sidebar ── */
 function renderSidebar() {
+  // Update title: show marked count + clear link
+  const titleEl = document.querySelector('.sidebar-title');
+  const cnt = favPlants.size;
+  if (cnt > 0) {
+    titleEl.innerHTML = `Plants <span class="sidebar-fav-count">· ${cnt} marked</span><span class="sidebar-fav-clear" id="fav-clear-btn">clear</span>`;
+    document.getElementById('fav-clear-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      favPlants.clear();
+      saveState();
+      renderSidebar();
+    });
+  } else {
+    titleEl.textContent = 'Plants';
+  }
+
   const el = document.getElementById('palette');
   el.innerHTML = '';
   const cats = [...new Set(PLANTS.map(p => p.cat))];
@@ -705,10 +740,12 @@ function renderSidebar() {
     el.appendChild(h);
 
     PLANTS.filter(p => p.cat === cat).forEach(plant => {
+      const marked = favPlants.has(plant.id);
       const item = document.createElement('div');
-      item.className = 'plant-item';
+      item.className = 'plant-item' + (marked ? ' fav' : '');
       item.title = `${plant.name} — ${plant.perSqFt} plant${plant.perSqFt > 1 ? 's' : ''} per square foot`;
       item.innerHTML = `
+        <span class="pi-dot${marked ? ' marked' : ''}" title="Mark for Smart Fill"></span>
         <span class="pi-emoji">${plantIcon(plant, 22)}</span>
         <div class="pi-info">
           <div class="pi-name">${plant.name}</div>
@@ -716,6 +753,14 @@ function renderSidebar() {
         </div>
         <div class="pi-badge">×${plant.perSqFt}</div>
       `;
+      item.querySelector('.pi-dot').addEventListener('pointerdown', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (favPlants.has(plant.id)) favPlants.delete(plant.id);
+        else favPlants.add(plant.id);
+        saveState();
+        renderSidebar();
+      });
       item.addEventListener('pointerdown', e => {
         if (e.button !== 0) return;
         sourcePaletteEl = item;
