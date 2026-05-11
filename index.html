@@ -341,19 +341,19 @@ body {
 .plan-date-chip-label { font-size: 0.55rem; color: #2c5f2e; font-weight: 600; }
 .plan-date-chip-clear { background: none; border: none; font-size: 0.75rem; line-height: 1; color: #2c5f2e; cursor: pointer; padding: 0 2px; font-weight: 700; }
 .plan-date-chip-clear:active { color: #c62828; }
-.plan-row-bars { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 3px; }
-.plan-bars-track { position: relative; height: 12px; }
+.plan-row-bars { flex: 1; }
+.plan-bars-track { position: relative; height: 26px; }
+.plan-bars-track .plan-bar { position: absolute; bottom: 0; height: 12px; border-radius: 3px; min-width: 3px; }
 .plan-month-bar { height: 22px; position: relative; }
 .plan-month-lbl { position: absolute; font-size: 0.55rem; color: #bbb; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; transform: translateX(-50%); top: 4px; white-space: nowrap; }
-.plan-bar { position: absolute; height: 100%; border-radius: 3px; min-width: 3px; }
 .bar-sow { background: #ff9800; }
 .bar-grow { background: #a5d6a7; }
 .bar-harvest { background: #2e7d32; }
 .bar-grow2 { background: #a5d6a7; opacity: 0.4; }
 .bar-harvest2 { background: #2e7d32; opacity: 0.38; }
-.plan-succ-inline { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
-.plan-succ-arrow { font-size: 0.58rem; color: #bbb; }
-.plan-succ-plant { display: flex; align-items: center; gap: 3px; background: #f0fbf5; border: 1px solid #c8e6c9; border-radius: 10px; padding: 1px 7px; font-size: 0.58rem; color: #2c5f2e; white-space: nowrap; }
+.plan-succ-inline { position: absolute; top: 1px; display: flex; align-items: center; gap: 3px; }
+.plan-succ-arrow { font-size: 0.55rem; color: #aaa; margin-right: 1px; }
+.plan-succ-plant { display: flex; align-items: center; gap: 2px; background: #f0fbf5; border: 1px solid #c8e6c9; border-radius: 10px; padding: 1px 5px; font-size: 0.55rem; color: #2c5f2e; white-space: nowrap; }
 .plan-legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 18px 16px; border-top: 1px solid #f5f0e8; }
 .plan-legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.62rem; color: #666; }
 .plan-legend-dot { width: 14px; height: 10px; border-radius: 2px; flex-shrink: 0; }
@@ -882,9 +882,10 @@ function renderPlanBody() {
       : '';
 
     const succIds = succSuggestions(r.def.id, r.harvestE);
+    const succLeft = pct(Math.min(r.harvestS, PLAN_E));
     const succInline = succIds.length ? `
-      <div class="plan-succ-inline">
-        <span class="plan-succ-arrow">→ then:</span>
+      <div class="plan-succ-inline" style="left:${succLeft}%">
+        <span class="plan-succ-arrow">→</span>
         ${succIds.map(sid => { const sd = plantDef(sid); return sd
           ? `<span class="plan-succ-plant">${plantIcon(sd,12)} ${sd.name}</span>` : ''; }).join('')}
       </div>` : '';
@@ -914,8 +915,10 @@ function renderPlanBody() {
           </div>
         </div>
         <div class="plan-row-bars">
-          ${succInline}
-          <div class="plan-bars-track">${bars.join('')}</div>
+          <div class="plan-bars-track">
+            ${bars.join('')}
+            ${succInline}
+          </div>
         </div>
       </div>`;
   }).join('');
