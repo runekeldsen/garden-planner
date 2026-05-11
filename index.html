@@ -313,14 +313,14 @@ body {
 /* ── Growing Plan ── */
 .plan-btn { font-size: 0.72rem; padding: 4px 10px; border-radius: 5px; border: 1.5px solid #2c5f2e; background: #fff; color: #2c5f2e; cursor: pointer; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
 .plan-btn:hover { background: #e8f5e9; }
-.plan-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: flex-start; justify-content: center; z-index: 200; overflow-y: auto; padding: 20px 16px; }
-.plan-overlay.hidden { display: none; }
-.plan-card { background: #fff; border-radius: 12px; width: 100%; max-width: 860px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); margin: auto; }
-.plan-hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid #eee; }
-.plan-title { font-size: 0.95rem; font-weight: 700; color: #2c5f2e; }
-.plan-close { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: #999; line-height: 1; }
-.plan-close:hover { color: #333; }
-.plan-now { padding: 12px 20px; background: #f0fbf5; border-bottom: 1px solid #d4edda; }
+.plan-btn.active { background: #2c5f2e; color: #fff; }
+.plan-section { display: none; margin-top: 28px; border-radius: 10px; border: 1.5px solid #dce8dc; overflow: hidden; }
+.plan-section.visible { display: block; }
+.plan-section-hdr { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; border-bottom: 1px solid #eef4ee; }
+.plan-section-title { font-size: 0.85rem; font-weight: 700; color: #2c5f2e; }
+.plan-collapse { background: none; border: none; font-size: 0.72rem; cursor: pointer; color: #aaa; padding: 0; }
+.plan-collapse:hover { color: #555; }
+.plan-now { padding: 12px 18px; background: #f0fbf5; border-bottom: 1px solid #d4edda; }
 .plan-now-title { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #2c5f2e; margin-bottom: 8px; }
 .plan-now-empty { font-size: 0.78rem; color: #aaa; }
 .plan-actions-list { display: flex; flex-direction: column; gap: 5px; }
@@ -330,16 +330,19 @@ body {
 .tag-plant { background: #e8f5e9; color: #1b5e20; }
 .tag-harvest { background: #e3f2fd; color: #1565c0; }
 .tag-succession { background: #fce4ec; color: #880e4f; }
-.plan-gantt { padding: 14px 20px 4px; overflow-x: auto; }
-.plan-gantt-inner { min-width: 480px; }
+.plan-gantt { padding: 14px 18px 4px; overflow-x: auto; }
+.plan-gantt-inner { min-width: 520px; }
 .plan-tl-wrap { position: relative; }
-.plan-backdrop { position: absolute; left: 110px; right: 0; top: 0; bottom: 0; pointer-events: none; z-index: 0; }
+.plan-backdrop { position: absolute; left: 130px; right: 0; top: 0; bottom: 0; pointer-events: none; z-index: 0; }
 .plan-grid-line { position: absolute; top: 0; bottom: 0; width: 1px; background: #f0ede8; }
 .plan-grid-today { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(231,76,60,0.28); }
-.plan-row { display: flex; align-items: center; min-height: 24px; position: relative; z-index: 1; }
-.plan-row-label { width: 110px; min-width: 110px; display: flex; align-items: center; gap: 5px; padding-right: 8px; }
-.plan-row-icon { width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.plan-row { display: flex; align-items: center; min-height: 28px; position: relative; z-index: 1; }
+.plan-row-label { width: 130px; min-width: 130px; display: flex; align-items: flex-start; gap: 5px; padding-right: 8px; }
+.plan-row-icon { width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
 .plan-row-name { font-size: 0.68rem; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plan-date-input { font-size: 0.5rem; border: 1px solid #ddd; border-radius: 3px; padding: 1px 2px; color: #888; background: #fafafa; cursor: pointer; display: block; margin-top: 2px; width: 92px; }
+.plan-date-input:focus { outline: none; border-color: #2c5f2e; }
+.plan-date-input.is-set { border-color: #a5d6a7; color: #2c5f2e; background: #f0fbf5; }
 .plan-row-bars { flex: 1; position: relative; height: 12px; }
 .plan-month-bar { height: 22px; }
 .plan-month-lbl { position: absolute; font-size: 0.55rem; color: #bbb; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; transform: translateX(-50%); top: 4px; white-space: nowrap; }
@@ -349,10 +352,15 @@ body {
 .bar-harvest { background: #2e7d32; }
 .bar-grow2 { background: #a5d6a7; opacity: 0.4; }
 .bar-harvest2 { background: #2e7d32; opacity: 0.38; }
-.plan-legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 20px 16px; border-top: 1px solid #f5f0e8; }
+.plan-succ { display: flex; align-items: center; padding: 3px 0 5px; position: relative; z-index: 1; }
+.plan-succ-spacer { width: 130px; min-width: 130px; flex-shrink: 0; }
+.plan-succ-inner { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.plan-succ-arrow { font-size: 0.6rem; color: #bbb; }
+.plan-succ-plant { display: flex; align-items: center; gap: 3px; background: #f0fbf5; border: 1px solid #c8e6c9; border-radius: 10px; padding: 1px 7px; font-size: 0.6rem; color: #2c5f2e; white-space: nowrap; }
+.plan-legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 18px 16px; border-top: 1px solid #f5f0e8; }
 .plan-legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.62rem; color: #666; }
 .plan-legend-dot { width: 14px; height: 10px; border-radius: 2px; flex-shrink: 0; }
-.plan-empty { padding: 28px 20px; text-align: center; color: #aaa; font-size: 0.85rem; }
+.plan-empty { padding: 28px 18px; text-align: center; color: #aaa; font-size: 0.85rem; }
 
 /* ── Responsive / Mobile ── */
 @media (max-width: 767px) {
@@ -372,7 +380,7 @@ body {
   .pi-info { flex: none; width: 100%; }
   .pi-name { font-size: 0.6rem; white-space: normal; line-height: 1.2; text-align: center; overflow: visible; }
   .pi-emoji { width: 28px; height: 28px; }
-  .content { padding: 6px 8px 24px; overflow-x: auto; overflow-y: auto; flex: 1; min-width: 0; }
+  .content { padding: 6px 8px 40px; overflow-x: auto; overflow-y: auto; flex: 1; min-width: 0; }
   .beds-grid { grid-template-columns: auto; gap: 12px; }
   :root { --cell: 44px; }
   .bed { gap: 1px; padding: 2px; }
@@ -533,6 +541,7 @@ let beds = Array.from({ length: 4 }, (_, i) => ({
 
 /* ── Marked plants (used by Smart Fill when non-empty) ── */
 let favPlants = new Set();
+let plantedDates = {}; // plantId → 'YYYY-MM-DD'
 
 /* ── Drag state ── */
 let drag = null; // { plantId, source:'palette'|'cell', srcBedId?, srcCellIdx? }
@@ -548,6 +557,7 @@ function loadState() {
       const d = JSON.parse(raw);
       if (Array.isArray(d.beds)) beds = d.beds;
       if (Array.isArray(d.favPlants)) favPlants = new Set(d.favPlants);
+      if (d.plantedDates && typeof d.plantedDates === 'object') plantedDates = d.plantedDates;
       // Ensure cells array is the right length (backwards compat)
       beds.forEach(b => {
         if (!Array.isArray(b.cells) || b.cells.length !== GRID_TOTAL) {
@@ -558,7 +568,7 @@ function loadState() {
   } catch (_) {}
 }
 function saveState() {
-  localStorage.setItem('sfg-planner-v1', JSON.stringify({ beds, favPlants: [...favPlants] }));
+  localStorage.setItem('sfg-planner-v1', JSON.stringify({ beds, favPlants: [...favPlants], plantedDates }));
 }
 
 /* ── Helpers ── */
@@ -743,14 +753,47 @@ const PLANT_TIMING = {
   edamame:       { preGerm: 0,  days: 85,  harvest:  3 },
 };
 
-function openPlan() {
-  renderPlanBody();
-  document.getElementById('planOverlay').classList.remove('hidden');
+const SUCCESSION = {
+  broad_beans: ['lettuce','spinach','kale','radish','beetroot'],
+  peas:        ['beans','lettuce','radish','carrot','spinach'],
+  snap_peas:   ['beans','lettuce','radish','spinach','carrot'],
+  lettuce:     ['beans','carrot','beetroot','radish','spinach'],
+  spinach:     ['beans','carrot','beetroot','cucumber','lettuce'],
+  radish:      ['lettuce','spinach','beans','beetroot','carrot'],
+  turnip:      ['lettuce','spinach','radish','kale','beetroot'],
+  cauliflower: ['lettuce','spinach','radish','kale'],
+  broccoli:    ['lettuce','spinach','radish','beans'],
+  cabbage:     ['lettuce','spinach','radish','kale'],
+  onion:       ['lettuce','spinach','beetroot','kale','carrot'],
+  garlic:      ['lettuce','spinach','beans','beetroot','kale'],
+  carrot:      ['spinach','lettuce','kale','onion'],
+  beetroot:    ['lettuce','spinach','kale','carrot'],
+  strawberry:  ['spinach','lettuce','kale'],
+};
+
+function succSuggestions(plantId, harvestEndDoy) {
+  return (SUCCESSION[plantId] || []).filter(sid => {
+    const t2 = PLANT_TIMING[sid];
+    return t2 && (harvestEndDoy + t2.days) < SEASON_END + 14;
+  }).slice(0, 2);
+}
+
+function doyToDateStr(year, d) {
+  const dt = new Date(year, 0, d);
+  return `${year}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+}
+
+function dateToDOY(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  let result = d;
+  for (let i = 0; i < m - 1; i++) result += MONTH_LEN[i];
+  return result;
 }
 
 function renderPlanBody() {
   const todayD = todayDOY();
   const curMonth = new Date().getMonth() + 1;
+  const year = new Date().getFullYear();
   const seen = new Set();
   beds.forEach(bed => bed.cells.forEach(c => c && seen.add(c.type)));
 
@@ -767,27 +810,28 @@ function renderPlanBody() {
     const t = PLANT_TIMING[id];
     if (!def || !t) return;
 
-    const outdoorD = doy(def.outdoorMonth, 15);
+    const planted = plantedDates[id];
+    const outdoorD = planted ? dateToDOY(planted) : doy(def.outdoorMonth, 15);
     const preGermD = outdoorD - t.preGerm * 7;
     const harvestS = outdoorD + t.days;
     const harvestE = Math.min(harvestS + t.harvest * 7, SEASON_END + 21);
 
     let suc = null;
-    if (t.harvest <= 4 && t.days > 0) {
+    if (t.harvest <= 4 && t.days > 0 && !planted) {
       const h2s = harvestS + t.days, h2e = h2s + t.harvest * 7;
       if (h2s < SEASON_END) suc = { s2: harvestS, h2s, h2e: Math.min(h2e, SEASON_END + 7) };
     }
 
-    rows.push({ def, t, preGermD, outdoorD, harvestS, harvestE, suc });
+    rows.push({ def, t, preGermD, outdoorD, harvestS, harvestE, suc, planted });
 
     const k = type => id + type;
-    const pgMon = new Date(new Date().getFullYear(), 0, preGermD).getMonth() + 1;
+    const pgMon = new Date(year, 0, preGermD).getMonth() + 1;
 
-    if (t.preGerm > 0 && pgMon === curMonth && !actSeen.has(k('sow'))) {
+    if (t.preGerm > 0 && !planted && pgMon === curMonth && !actSeen.has(k('sow'))) {
       actions.push({ type: 'sow', text: `Start ${def.name} seeds indoors`, def });
       actSeen.add(k('sow'));
     }
-    if (def.outdoorMonth === curMonth && !actSeen.has(k('plant'))) {
+    if (!planted && def.outdoorMonth === curMonth && !actSeen.has(k('plant'))) {
       actions.push({ type: 'plant', text: `${t.preGerm > 0 ? 'Transplant' : 'Sow'} ${def.name} outdoors`, def });
       actSeen.add(k('plant'));
     }
@@ -828,13 +872,35 @@ function renderPlanBody() {
       const hl2 = parseFloat(pct(r.suc.h2s)), hw2 = Math.max(0.5, parseFloat(pct(r.suc.h2e)) - hl2);
       bars.push(`<div class="plan-bar bar-harvest2" style="left:${hl2}%;width:${hw2}%" title="Succession: harvest"></div>`);
     }
-    return `<div class="plan-row">
-      <div class="plan-row-label">
-        <div class="plan-row-icon">${plantIcon(r.def, 18)}</div>
-        <div class="plan-row-name">${r.def.name}</div>
-      </div>
-      <div class="plan-row-bars">${bars.join('')}</div>
-    </div>`;
+
+    const defaultDate = doyToDateStr(year, r.outdoorD);
+    const dateVal = r.planted || '';
+    const isSet = !!r.planted;
+
+    const succIds = succSuggestions(r.def.id, r.harvestE);
+    const succHtml = succIds.length ? `
+      <div class="plan-succ">
+        <div class="plan-succ-spacer"></div>
+        <div class="plan-succ-inner">
+          <span class="plan-succ-arrow">→ then:</span>
+          ${succIds.map(sid => { const sd = plantDef(sid); return sd
+            ? `<span class="plan-succ-plant">${plantIcon(sd,12)} ${sd.name}</span>` : ''; }).join('')}
+        </div>
+      </div>` : '';
+
+    return `
+      <div class="plan-row">
+        <div class="plan-row-label">
+          <div class="plan-row-icon">${plantIcon(r.def, 18)}</div>
+          <div>
+            <div class="plan-row-name">${r.def.name}</div>
+            <input type="date" class="plan-date-input${isSet ? ' is-set' : ''}"
+              data-id="${r.def.id}" value="${dateVal}" placeholder="${defaultDate}"
+              title="Set actual planting date to get accurate harvest timing">
+          </div>
+        </div>
+        <div class="plan-row-bars">${bars.join('')}</div>
+      </div>${succHtml}`;
   }).join('');
 
   planBody.innerHTML = `
@@ -870,26 +936,52 @@ function renderPlanBody() {
       <div class="plan-legend-item"><div class="plan-legend-dot" style="background:#ff9800"></div>Sow indoors</div>
       <div class="plan-legend-item"><div class="plan-legend-dot" style="background:#a5d6a7"></div>Growing</div>
       <div class="plan-legend-item"><div class="plan-legend-dot" style="background:#2e7d32"></div>Harvest</div>
-      <div class="plan-legend-item"><div class="plan-legend-dot" style="background:#2e7d32;opacity:0.4"></div>Succession</div>
+      <div class="plan-legend-item"><div class="plan-legend-dot" style="background:#2e7d32;opacity:0.4"></div>Succession sow</div>
       <div class="plan-legend-item"><div class="plan-legend-dot" style="background:#e74c3c;width:4px;border-radius:1px;opacity:0.7"></div>Today</div>
     </div>`;
 }
 
-function initPlanModal() {
+function initPlanSection() {
+  const content = document.querySelector('.content');
   const el = document.createElement('div');
-  el.id = 'planOverlay';
-  el.className = 'plan-overlay hidden';
-  el.innerHTML = `<div class="plan-card">
-    <div class="plan-hdr">
-      <span class="plan-title">📅 Growing Plan</span>
-      <button class="plan-close" id="planClose">×</button>
+  el.id = 'planSection';
+  el.className = 'plan-section';
+  el.innerHTML = `
+    <div class="plan-section-hdr">
+      <span class="plan-section-title">📅 Growing Plan</span>
+      <button class="plan-collapse" id="planCollapse">✕ Close</button>
     </div>
-    <div id="planBody"></div>
-  </div>`;
-  document.body.appendChild(el);
-  el.addEventListener('click', e => { if (e.target === el) el.classList.add('hidden'); });
-  document.getElementById('planClose').addEventListener('click', () => el.classList.add('hidden'));
-  document.getElementById('planOpenBtn').addEventListener('click', openPlan);
+    <div id="planBody"></div>`;
+  content.appendChild(el);
+
+  const btn = document.getElementById('planOpenBtn');
+  btn.addEventListener('click', () => {
+    const visible = el.classList.toggle('visible');
+    btn.classList.toggle('active', visible);
+    btn.textContent = visible ? '📅 Hide Plan' : '📅 Growing Plan';
+    if (visible) { renderPlanBody(); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+  });
+
+  document.getElementById('planCollapse').addEventListener('click', () => {
+    el.classList.remove('visible');
+    btn.classList.remove('active');
+    btn.textContent = '📅 Growing Plan';
+  });
+
+  el.addEventListener('change', e => {
+    if (e.target.classList.contains('plan-date-input')) {
+      const id = e.target.dataset.id;
+      if (e.target.value) {
+        plantedDates[id] = e.target.value;
+        e.target.classList.add('is-set');
+      } else {
+        delete plantedDates[id];
+        e.target.classList.remove('is-set');
+      }
+      saveState();
+      renderPlanBody();
+    }
+  });
 }
 
 function initSfModal() {
@@ -1232,7 +1324,7 @@ function buildCell(bed, cellIdx) {
 loadState();
 renderSidebar();
 renderBeds();
-initPlanModal();
+initPlanSection();
 initSfModal();
 </script>
 </body>
