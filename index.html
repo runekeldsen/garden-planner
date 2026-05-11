@@ -959,7 +959,7 @@ function initPlanSection() {
     const visible = el.classList.toggle('visible');
     btn.classList.toggle('active', visible);
     btn.textContent = visible ? '📅 Hide Plan' : '📅 Growing Plan';
-    if (visible) { renderPlanBody(); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+    if (visible) { renderPlanBody(); content.scrollTo({ top: content.scrollHeight, behavior: 'smooth' }); }
   });
 
   document.getElementById('planCollapse').addEventListener('click', () => {
