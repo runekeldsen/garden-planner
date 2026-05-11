@@ -307,11 +307,11 @@ body {
 
 /* ── Responsive / Mobile ── */
 @media (max-width: 767px) {
-  body { height: auto; overflow-y: auto; }
+  body { height: auto; overflow-y: auto; overflow-x: hidden; }
   .header { padding: 8px 12px; gap: 8px; flex-wrap: wrap; }
   .header h1 { font-size: 0.9rem; }
   .header .hint, .header [style*="opacity:0.45"] { display: none; }
-  .layout { flex-direction: column; overflow: visible; }
+  .layout { flex-direction: column; overflow: visible; flex: none; height: auto; }
   .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #ddd6c8; flex-shrink: 0; }
   .sidebar-title { display: none; }
   .sidebar-list { flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 6px 8px; gap: 4px; scrollbar-width: none; }
@@ -324,7 +324,7 @@ body {
   .pi-sfg { display: none; }
   .pi-name { font-size: 0.58rem; white-space: normal; line-height: 1.2; text-align: center; overflow: visible; }
   .pi-emoji { width: 30px; height: 30px; }
-  .content { padding: 10px 10px 24px; overflow: visible; }
+  .content { padding: 10px 10px 24px; overflow: visible; flex: none; height: auto; }
   .beds-grid { grid-template-columns: auto; gap: 14px; width: 100%; }
   :root { --cell: 54px; }
   .bed { gap: 2px; padding: 3px; }
