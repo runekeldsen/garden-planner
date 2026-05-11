@@ -1010,29 +1010,29 @@ function initSfModal() {
 }
 
 /* ── Drag engine ── */
+const DRAG_THRESHOLD = 8;
+
 function startDrag(e, plantId, source, srcBedId, srcCellIdx) {
-  e.preventDefault();
+  if (drag) cancelDrag(); // clean up any stuck state
   const def = plantDef(plantId);
   if (!def) return;
+  drag = { plantId, source, srcBedId, srcCellIdx, def, startX: e.clientX, startY: e.clientY, live: false };
+  document.addEventListener('pointermove', onDragMove, { passive: false });
+  document.addEventListener('pointerup',   onDragEnd);
+  document.addEventListener('pointercancel', onDragCancel);
+}
 
-  drag = { plantId, source, srcBedId, srcCellIdx };
-
-  // Ghost
+function promoteDrag(e) {
+  // Called once threshold is exceeded — create ghost and lock scroll
+  const { def } = drag;
   ghostEl = document.createElement('div');
   ghostEl.id = 'drag-ghost';
   ghostEl.style.background = def.bg;
   ghostEl.style.borderColor = def.color;
-  ghostEl.innerHTML = `
-    <span class="g-emoji">${plantIcon(def, 32)}</span>
-    <span class="g-count">×${def.perSqFt}</span>
-  `;
+  ghostEl.innerHTML = `<span class="g-emoji">${plantIcon(def, 32)}</span><span class="g-count">×${def.perSqFt}</span>`;
   document.body.appendChild(ghostEl);
-
   positionGhost(e.clientX, e.clientY);
-
-  document.addEventListener('pointermove', onDragMove, { passive: false });
-  document.addEventListener('pointerup',   onDragEnd);
-  document.addEventListener('pointercancel', onDragEnd);
+  drag.live = true;
 }
 
 function positionGhost(x, y) {
@@ -1042,6 +1042,12 @@ function positionGhost(x, y) {
 }
 
 function onDragMove(e) {
+  if (!drag) return;
+  if (!drag.live) {
+    const dx = e.clientX - drag.startX, dy = e.clientY - drag.startY;
+    if (dx * dx + dy * dy < DRAG_THRESHOLD * DRAG_THRESHOLD) return;
+    promoteDrag(e);
+  }
   e.preventDefault();
   positionGhost(e.clientX, e.clientY);
   clearHighlight();
@@ -1053,16 +1059,28 @@ function onDragMove(e) {
   }
 }
 
+function cancelDrag() {
+  document.removeEventListener('pointermove', onDragMove);
+  document.removeEventListener('pointerup',   onDragEnd);
+  document.removeEventListener('pointercancel', onDragCancel);
+  clearHighlight();
+  if (ghostEl) { ghostEl.remove(); ghostEl = null; }
+  if (sourcePaletteEl) { sourcePaletteEl.classList.remove('dragging-source'); sourcePaletteEl = null; }
+  drag = null;
+}
+
+function onDragCancel() { cancelDrag(); }
+
 function onDragEnd(e) {
   document.removeEventListener('pointermove', onDragMove);
   document.removeEventListener('pointerup',   onDragEnd);
-  document.removeEventListener('pointercancel', onDragEnd);
+  document.removeEventListener('pointercancel', onDragCancel);
 
   clearHighlight();
   if (ghostEl) { ghostEl.remove(); ghostEl = null; }
   if (sourcePaletteEl) { sourcePaletteEl.classList.remove('dragging-source'); sourcePaletteEl = null; }
 
-  if (!drag) { drag = null; return; }
+  if (!drag || !drag.live) { drag = null; return; }
 
   const cellEl = sqCellAt(e.clientX, e.clientY);
   if (cellEl) {
@@ -1321,6 +1339,8 @@ function buildCell(bed, cellIdx) {
 }
 
 /* ── Init ── */
+document.addEventListener('visibilitychange', () => { if (document.hidden && drag) cancelDrag(); });
+
 loadState();
 renderSidebar();
 renderBeds();
