@@ -310,6 +310,50 @@ body {
 .fill-dd-item { padding: 6px 14px; font-size: 0.78rem; cursor: pointer; color: #333; white-space: nowrap; }
 .fill-dd-item:hover { background: #f0fbf5; color: #2c5f2e; }
 
+/* ── Growing Plan ── */
+.plan-btn { font-size: 0.72rem; padding: 4px 10px; border-radius: 5px; border: 1.5px solid #2c5f2e; background: #fff; color: #2c5f2e; cursor: pointer; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+.plan-btn:hover { background: #e8f5e9; }
+.plan-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: flex-start; justify-content: center; z-index: 200; overflow-y: auto; padding: 20px 16px; }
+.plan-overlay.hidden { display: none; }
+.plan-card { background: #fff; border-radius: 12px; width: 100%; max-width: 860px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); margin: auto; }
+.plan-hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid #eee; }
+.plan-title { font-size: 0.95rem; font-weight: 700; color: #2c5f2e; }
+.plan-close { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: #999; line-height: 1; }
+.plan-close:hover { color: #333; }
+.plan-now { padding: 12px 20px; background: #f0fbf5; border-bottom: 1px solid #d4edda; }
+.plan-now-title { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #2c5f2e; margin-bottom: 8px; }
+.plan-now-empty { font-size: 0.78rem; color: #aaa; }
+.plan-actions-list { display: flex; flex-direction: column; gap: 5px; }
+.plan-action { display: flex; align-items: center; gap: 7px; font-size: 0.78rem; color: #333; }
+.plan-action-tag { font-size: 0.58rem; font-weight: 700; padding: 2px 7px; border-radius: 10px; white-space: nowrap; flex-shrink: 0; }
+.tag-sow { background: #fff3e0; color: #e65100; }
+.tag-plant { background: #e8f5e9; color: #1b5e20; }
+.tag-harvest { background: #e3f2fd; color: #1565c0; }
+.tag-succession { background: #fce4ec; color: #880e4f; }
+.plan-gantt { padding: 14px 20px 4px; overflow-x: auto; }
+.plan-gantt-inner { min-width: 480px; }
+.plan-tl-wrap { position: relative; }
+.plan-backdrop { position: absolute; left: 110px; right: 0; top: 0; bottom: 0; pointer-events: none; z-index: 0; }
+.plan-grid-line { position: absolute; top: 0; bottom: 0; width: 1px; background: #f0ede8; }
+.plan-grid-today { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(231,76,60,0.28); }
+.plan-row { display: flex; align-items: center; min-height: 24px; position: relative; z-index: 1; }
+.plan-row-label { width: 110px; min-width: 110px; display: flex; align-items: center; gap: 5px; padding-right: 8px; }
+.plan-row-icon { width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.plan-row-name { font-size: 0.68rem; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plan-row-bars { flex: 1; position: relative; height: 12px; }
+.plan-month-bar { height: 22px; }
+.plan-month-lbl { position: absolute; font-size: 0.55rem; color: #bbb; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; transform: translateX(-50%); top: 4px; white-space: nowrap; }
+.plan-bar { position: absolute; height: 100%; border-radius: 3px; min-width: 3px; }
+.bar-sow { background: #ff9800; }
+.bar-grow { background: #a5d6a7; }
+.bar-harvest { background: #2e7d32; }
+.bar-grow2 { background: #a5d6a7; opacity: 0.4; }
+.bar-harvest2 { background: #2e7d32; opacity: 0.38; }
+.plan-legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 20px 16px; border-top: 1px solid #f5f0e8; }
+.plan-legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.62rem; color: #666; }
+.plan-legend-dot { width: 14px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+.plan-empty { padding: 28px 20px; text-align: center; color: #aaa; font-size: 0.85rem; }
+
 /* ── Responsive / Mobile ── */
 @media (max-width: 767px) {
   body { height: 100vh; overflow: hidden; }
@@ -351,6 +395,7 @@ body {
   <h1>Garden Bed Planner</h1>
   <span class="sfg-tag">Square Foot Gardening</span>
   <span class="hint">Drag plants into squares &nbsp;·&nbsp; Each square = 1 sq ft &nbsp;·&nbsp; Number = plants per square &nbsp;·&nbsp; Hover + × to remove</span>
+  <button class="plan-btn" id="planOpenBtn">📅 Growing Plan</button>
   <span style="font-size:0.6rem;opacity:0.45;margin-left:4px">Icons: <a href="https://openmoji.org" style="color:inherit">OpenMoji</a> CC BY-SA 4.0</span>
 </div>
 
@@ -641,6 +686,210 @@ function applySfFill() {
   saveState();
   renderBeds();
   document.getElementById('sf-overlay').classList.add('hidden');
+}
+
+/* ── Growing Plan ── */
+const PLAN_S = 1, PLAN_E = 319, PLAN_D = 318;
+const SEASON_END = 288; // Oct 15
+const MONTH_ABR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTH_LEN = [31,28,31,30,31,30,31,31,30,31,30,31];
+
+function doy(month, day) {
+  let d = day;
+  for (let i = 0; i < month - 1; i++) d += MONTH_LEN[i];
+  return d;
+}
+function pct(d) { return (((d - PLAN_S) / PLAN_D) * 100).toFixed(2); }
+function todayDOY() {
+  const n = new Date(), j = new Date(n.getFullYear(), 0, 1);
+  return Math.floor((n - j) / 86400000) + 1;
+}
+
+const PLANT_TIMING = {
+  tomato:        { preGerm: 7,  days: 75,  harvest: 10 },
+  cherry_tomato: { preGerm: 7,  days: 65,  harvest: 10 },
+  pepper:        { preGerm: 9,  days: 80,  harvest:  8 },
+  eggplant:      { preGerm: 9,  days: 75,  harvest:  8 },
+  zucchini:      { preGerm: 3,  days: 55,  harvest: 10 },
+  cucumber:      { preGerm: 3,  days: 60,  harvest:  8 },
+  lettuce:       { preGerm: 4,  days: 45,  harvest:  3 },
+  spinach:       { preGerm: 0,  days: 45,  harvest:  3 },
+  kale:          { preGerm: 5,  days: 65,  harvest: 12 },
+  broccoli:      { preGerm: 5,  days: 80,  harvest:  3 },
+  cabbage:       { preGerm: 6,  days: 90,  harvest:  4 },
+  cauliflower:   { preGerm: 5,  days: 85,  harvest:  2 },
+  carrot:        { preGerm: 0,  days: 75,  harvest:  6 },
+  radish:        { preGerm: 0,  days: 28,  harvest:  2 },
+  beetroot:      { preGerm: 0,  days: 60,  harvest:  6 },
+  parsnip:       { preGerm: 0,  days: 120, harvest:  8 },
+  turnip:        { preGerm: 0,  days: 50,  harvest:  4 },
+  onion:         { preGerm: 10, days: 110, harvest:  4 },
+  garlic:        { preGerm: 0,  days: 90,  harvest:  4 },
+  leek:          { preGerm: 10, days: 120, harvest: 12 },
+  strawberry:    { preGerm: 0,  days: 60,  harvest:  4 },
+  pumpkin:       { preGerm: 3,  days: 100, harvest:  6 },
+  asparagus:     { preGerm: 0,  days: 0,   harvest:  4 },
+  basil:         { preGerm: 6,  days: 45,  harvest: 12 },
+  parsley:       { preGerm: 6,  days: 70,  harvest: 12 },
+  dill:          { preGerm: 0,  days: 50,  harvest:  6 },
+  chives:        { preGerm: 6,  days: 60,  harvest: 16 },
+  mint:          { preGerm: 0,  days: 40,  harvest: 16 },
+  rosemary:      { preGerm: 0,  days: 90,  harvest: 16 },
+  thyme:         { preGerm: 0,  days: 60,  harvest: 16 },
+  peas:          { preGerm: 0,  days: 65,  harvest:  3 },
+  beans:         { preGerm: 0,  days: 60,  harvest:  6 },
+  broad_beans:   { preGerm: 0,  days: 90,  harvest:  4 },
+  snap_peas:     { preGerm: 0,  days: 65,  harvest:  3 },
+  edamame:       { preGerm: 0,  days: 85,  harvest:  3 },
+};
+
+function openPlan() {
+  renderPlanBody();
+  document.getElementById('planOverlay').classList.remove('hidden');
+}
+
+function renderPlanBody() {
+  const todayD = todayDOY();
+  const curMonth = new Date().getMonth() + 1;
+  const seen = new Set();
+  beds.forEach(bed => bed.cells.forEach(c => c && seen.add(c.type)));
+
+  const planBody = document.getElementById('planBody');
+  if (!seen.size) {
+    planBody.innerHTML = '<div class="plan-empty">Add plants to your beds to see the growing plan.</div>';
+    return;
+  }
+
+  const rows = [], actions = [], actSeen = new Set();
+
+  seen.forEach(id => {
+    const def = plantDef(id);
+    const t = PLANT_TIMING[id];
+    if (!def || !t) return;
+
+    const outdoorD = doy(def.outdoorMonth, 15);
+    const preGermD = outdoorD - t.preGerm * 7;
+    const harvestS = outdoorD + t.days;
+    const harvestE = Math.min(harvestS + t.harvest * 7, SEASON_END + 21);
+
+    let suc = null;
+    if (t.harvest <= 4 && t.days > 0) {
+      const h2s = harvestS + t.days, h2e = h2s + t.harvest * 7;
+      if (h2s < SEASON_END) suc = { s2: harvestS, h2s, h2e: Math.min(h2e, SEASON_END + 7) };
+    }
+
+    rows.push({ def, t, preGermD, outdoorD, harvestS, harvestE, suc });
+
+    const k = type => id + type;
+    const pgMon = new Date(new Date().getFullYear(), 0, preGermD).getMonth() + 1;
+
+    if (t.preGerm > 0 && pgMon === curMonth && !actSeen.has(k('sow'))) {
+      actions.push({ type: 'sow', text: `Start ${def.name} seeds indoors`, def });
+      actSeen.add(k('sow'));
+    }
+    if (def.outdoorMonth === curMonth && !actSeen.has(k('plant'))) {
+      actions.push({ type: 'plant', text: `${t.preGerm > 0 ? 'Transplant' : 'Sow'} ${def.name} outdoors`, def });
+      actSeen.add(k('plant'));
+    }
+    if (harvestS <= todayD + 14 && harvestE >= todayD && !actSeen.has(k('harvest'))) {
+      actions.push({ type: 'harvest', text: `${def.name} ${harvestS <= todayD ? 'ready to harvest' : 'harvest starting soon'}`, def });
+      actSeen.add(k('harvest'));
+    }
+    if (suc && suc.s2 >= todayD - 7 && suc.s2 <= todayD + 30 && !actSeen.has(k('succ'))) {
+      actions.push({ type: 'succession', text: `Sow ${def.name} again for a second harvest`, def });
+      actSeen.add(k('succ'));
+    }
+  });
+
+  rows.sort((a, b) => a.outdoorD - b.outdoorD || a.def.name.localeCompare(b.def.name));
+
+  const tp = parseFloat(pct(todayD));
+  const mths = [
+    {n:'Jan',d:1},{n:'Feb',d:32},{n:'Mar',d:60},{n:'Apr',d:91},{n:'May',d:121},
+    {n:'Jun',d:152},{n:'Jul',d:182},{n:'Aug',d:213},{n:'Sep',d:244},{n:'Oct',d:274},{n:'Nov',d:305}
+  ];
+  const tagLbl = { sow:'Sow indoors', plant:'Plant out', harvest:'Harvest', succession:'Succession' };
+
+  const rowsHtml = rows.map(r => {
+    const bars = [];
+    if (r.t.preGerm > 0) {
+      const l = parseFloat(pct(r.preGermD)), w = Math.max(0.5, parseFloat(pct(r.outdoorD)) - l);
+      bars.push(`<div class="plan-bar bar-sow" style="left:${l}%;width:${w}%" title="Sow indoors"></div>`);
+    }
+    if (r.t.days > 0) {
+      const l = parseFloat(pct(r.outdoorD)), w = Math.max(0.5, parseFloat(pct(r.harvestS)) - l);
+      bars.push(`<div class="plan-bar bar-grow" style="left:${l}%;width:${w}%" title="Growing outdoors"></div>`);
+    }
+    const hl = parseFloat(pct(r.harvestS)), hw = Math.max(0.5, parseFloat(pct(r.harvestE)) - hl);
+    bars.push(`<div class="plan-bar bar-harvest" style="left:${hl}%;width:${hw}%" title="Harvest"></div>`);
+    if (r.suc) {
+      const gl2 = parseFloat(pct(r.suc.s2)), gw2 = Math.max(0.5, parseFloat(pct(r.suc.h2s)) - gl2);
+      bars.push(`<div class="plan-bar bar-grow2" style="left:${gl2}%;width:${gw2}%" title="Succession: growing"></div>`);
+      const hl2 = parseFloat(pct(r.suc.h2s)), hw2 = Math.max(0.5, parseFloat(pct(r.suc.h2e)) - hl2);
+      bars.push(`<div class="plan-bar bar-harvest2" style="left:${hl2}%;width:${hw2}%" title="Succession: harvest"></div>`);
+    }
+    return `<div class="plan-row">
+      <div class="plan-row-label">
+        <div class="plan-row-icon">${plantIcon(r.def, 18)}</div>
+        <div class="plan-row-name">${r.def.name}</div>
+      </div>
+      <div class="plan-row-bars">${bars.join('')}</div>
+    </div>`;
+  }).join('');
+
+  planBody.innerHTML = `
+    <div class="plan-now">
+      <div class="plan-now-title">📅 ${MONTH_ABR[curMonth - 1]} — What to do now</div>
+      ${actions.length
+        ? `<div class="plan-actions-list">${actions.map(a =>
+            `<div class="plan-action">
+              <span class="plan-action-tag tag-${a.type}">${tagLbl[a.type]}</span>
+              <span class="plan-row-icon">${plantIcon(a.def, 15)}</span>
+              <span>${a.text}</span>
+            </div>`).join('')}</div>`
+        : `<div class="plan-now-empty">Nothing due this month for your plants.</div>`}
+    </div>
+    <div class="plan-gantt">
+      <div class="plan-gantt-inner">
+        <div class="plan-tl-wrap">
+          <div class="plan-backdrop">
+            ${mths.map(m => `<div class="plan-grid-line" style="left:${pct(m.d)}%"></div>`).join('')}
+            <div class="plan-grid-today" style="left:${tp}%"></div>
+          </div>
+          <div class="plan-row">
+            <div class="plan-row-label"></div>
+            <div class="plan-row-bars plan-month-bar">
+              ${mths.map(m => `<span class="plan-month-lbl" style="left:${pct(m.d)}%">${m.n}</span>`).join('')}
+            </div>
+          </div>
+          ${rowsHtml}
+        </div>
+      </div>
+    </div>
+    <div class="plan-legend">
+      <div class="plan-legend-item"><div class="plan-legend-dot" style="background:#ff9800"></div>Sow indoors</div>
+      <div class="plan-legend-item"><div class="plan-legend-dot" style="background:#a5d6a7"></div>Growing</div>
+      <div class="plan-legend-item"><div class="plan-legend-dot" style="background:#2e7d32"></div>Harvest</div>
+      <div class="plan-legend-item"><div class="plan-legend-dot" style="background:#2e7d32;opacity:0.4"></div>Succession</div>
+      <div class="plan-legend-item"><div class="plan-legend-dot" style="background:#e74c3c;width:4px;border-radius:1px;opacity:0.7"></div>Today</div>
+    </div>`;
+}
+
+function initPlanModal() {
+  const el = document.createElement('div');
+  el.id = 'planOverlay';
+  el.className = 'plan-overlay hidden';
+  el.innerHTML = `<div class="plan-card">
+    <div class="plan-hdr">
+      <span class="plan-title">📅 Growing Plan</span>
+      <button class="plan-close" id="planClose">×</button>
+    </div>
+    <div id="planBody"></div>
+  </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click', e => { if (e.target === el) el.classList.add('hidden'); });
+  document.getElementById('planClose').addEventListener('click', () => el.classList.add('hidden'));
+  document.getElementById('planOpenBtn').addEventListener('click', openPlan);
 }
 
 function initSfModal() {
@@ -983,6 +1232,7 @@ function buildCell(bed, cellIdx) {
 loadState();
 renderSidebar();
 renderBeds();
+initPlanModal();
 initSfModal();
 </script>
 </body>
