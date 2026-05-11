@@ -44,7 +44,7 @@ body {
 
 /* ── Sidebar ── */
 .sidebar {
-  width: 172px;
+  width: 110px;
   background: white;
   border-right: 1px solid #ddd6c8;
   display: flex;
@@ -74,9 +74,10 @@ body {
 
 .plant-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 5px 6px;
+  gap: 3px;
+  padding: 7px 4px 5px;
   border-radius: 6px;
   margin-bottom: 2px;
   cursor: grab;
@@ -85,23 +86,23 @@ body {
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
+  position: relative;
 }
 .plant-item:hover { background: #f5f0e8; border-color: #e0d8cc; }
 .plant-item.dragging-source { opacity: 0.35; }
 
-.pi-emoji { width: 24px; height: 24px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-.pi-info { flex: 1; min-width: 0; }
-.pi-name { font-size: 0.73rem; font-weight: 500; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pi-emoji { width: 30px; height: 30px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.pi-info { width: 100%; text-align: center; }
+.pi-name { font-size: 0.63rem; font-weight: 500; color: #333; white-space: normal; line-height: 1.2; text-align: center; overflow: visible; }
 .pi-sfg { font-size: 0.61rem; color: #aaa; }
 .pi-badge {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 700;
   color: #2c5f2e;
   background: #e8f5e9;
   padding: 1px 5px;
   border-radius: 10px;
   white-space: nowrap;
-  flex-shrink: 0;
 }
 
 /* ── Content ── */
@@ -290,7 +291,7 @@ body {
 .bed-compass { font-size: 0.58rem; color: #bbb; letter-spacing: 0.04em; display: flex; justify-content: space-between; padding: 1px 4px; }
 
 /* ── Plant marking ── */
-.pi-dot { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid #ccc; flex-shrink: 0; cursor: pointer; transition: background 0.12s, border-color 0.12s; margin-right: 1px; }
+.pi-dot { position: absolute; top: 5px; left: 5px; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #ccc; cursor: pointer; transition: background 0.12s, border-color 0.12s; }
 .pi-dot.marked { background: #2c5f2e; border-color: #2c5f2e; }
 .plant-item:hover .pi-dot:not(.marked) { border-color: #888; }
 .plant-item.fav { background: #f0fbf5; border-color: #c8e6c9 !important; }
