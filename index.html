@@ -6,6 +6,7 @@
 <title>Square Foot Garden Planner</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
+:root { --cell: 82px; }
 
 body {
   font-family: system-ui, -apple-system, sans-serif;
@@ -158,8 +159,8 @@ body {
 /* ── Bed grid ── */
 .bed {
   display: grid;
-  grid-template-columns: repeat(6, 82px);
-  grid-template-rows: repeat(3, 82px);
+  grid-template-columns: repeat(6, var(--cell));
+  grid-template-rows: repeat(3, var(--cell));
   gap: 3px;
   padding: 4px;
   background: #7a4f28;
@@ -170,8 +171,8 @@ body {
 
 /* ── Square foot cell ── */
 .sq-cell {
-  width: 82px;
-  height: 82px;
+  width: var(--cell);
+  height: var(--cell);
   border-radius: 2px;
   display: flex;
   flex-direction: column;
@@ -303,6 +304,40 @@ body {
 .fill-dd { position: fixed; background: white; border: 1px solid #ddd; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.18); z-index: 300; padding: 4px 0; min-width: 120px; }
 .fill-dd-item { padding: 6px 14px; font-size: 0.78rem; cursor: pointer; color: #333; white-space: nowrap; }
 .fill-dd-item:hover { background: #f0fbf5; color: #2c5f2e; }
+
+/* ── Responsive / Mobile ── */
+@media (max-width: 767px) {
+  body { height: auto; overflow-y: auto; }
+  .header { padding: 8px 12px; gap: 8px; flex-wrap: wrap; }
+  .header h1 { font-size: 0.9rem; }
+  .header .hint, .header [style*="opacity:0.45"] { display: none; }
+  .layout { flex-direction: column; overflow: visible; }
+  .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #ddd6c8; flex-shrink: 0; }
+  .sidebar-title { display: none; }
+  .sidebar-list { flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 6px 8px; gap: 4px; scrollbar-width: none; }
+  .sidebar-list::-webkit-scrollbar { display: none; }
+  .section-header { display: none; }
+  .plant-item { flex-direction: column; align-items: center; gap: 3px; min-width: 52px; max-width: 60px; padding: 6px 4px; border-radius: 8px; }
+  .pi-dot { display: none; }
+  .pi-fill { display: none; }
+  .pi-badge { display: none; }
+  .pi-sfg { display: none; }
+  .pi-name { font-size: 0.58rem; white-space: normal; line-height: 1.2; text-align: center; overflow: visible; }
+  .pi-emoji { width: 30px; height: 30px; }
+  .content { padding: 10px 10px 24px; overflow: visible; }
+  .beds-grid { grid-template-columns: auto; gap: 14px; width: 100%; }
+  :root { --cell: 54px; }
+  .bed { gap: 2px; padding: 3px; }
+  .sq-cell .cell-emoji { height: auto; }
+  .sq-cell .cell-name { font-size: 6px; max-width: calc(var(--cell) - 4px); margin-top: 1px; }
+  .sq-cell .cell-count { font-size: 10px; }
+  .sq-cell.empty::after { font-size: 14px; }
+  .sq-cell .x-btn { width: 14px; height: 14px; font-size: 9px; line-height: 14px; top: 1px; right: 1px; }
+  .bed-clear, .bed-smartfill { opacity: 0.65; }
+  .bed-dims { display: none; }
+  .bed-compass { font-size: 0.55rem; }
+  .sf-card { width: 92vw; max-width: 92vw; }
+}
 </style>
 </head>
 <body>
@@ -329,7 +364,7 @@ body {
 const GRID_COLS  = 6;
 const GRID_ROWS  = 3;
 const GRID_TOTAL = GRID_COLS * GRID_ROWS; // 18 sq ft per bed
-const CELL_PX    = 82;
+const CELL_PX    = window.matchMedia('(max-width: 767px)').matches ? 54 : 82;
 
 /* ── Custom SVGs for plants that lack a dedicated Unicode emoji ── */
 const PLANT_SVG = {
@@ -786,13 +821,13 @@ function renderSidebar() {
       const marked = favPlants.has(plant.id);
       const item = document.createElement('div');
       item.className = 'plant-item' + (marked ? ' fav' : '');
-      item.title = `${plant.name} — ${plant.perSqFt} plant${plant.perSqFt > 1 ? 's' : ''} per square foot`;
+      item.title = `${plant.name} · ${plant.perSqFt}/sq ft · outdoors from ${MONTH_SHORT[plant.outdoorMonth]} in Denmark`;
       item.innerHTML = `
         <span class="pi-dot${marked ? ' marked' : ''}" title="Mark for Smart Fill"></span>
         <span class="pi-emoji">${plantIcon(plant, 22)}</span>
         <div class="pi-info">
           <div class="pi-name">${plant.name}</div>
-          <div class="pi-sfg">${plant.perSqFt}/sq ft · out ${MONTH_SHORT[plant.outdoorMonth]}+</div>
+          <div class="pi-sfg">${plant.perSqFt}/sq ft</div>
         </div>
         <div class="pi-badge">×${plant.perSqFt}</div>
         <span class="pi-fill" title="Fill a bed with this plant">fill</span>
