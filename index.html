@@ -972,7 +972,6 @@ function initPlanSection() {
     renderPlanBody();
   }
   el.addEventListener('change', onPlanDateChange);
-  el.addEventListener('input', onPlanDateChange);
   el.addEventListener('click', e => {
     const btn = e.target.closest('.plan-date-chip-clear');
     if (!btn) return;
