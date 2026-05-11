@@ -793,8 +793,9 @@ function fillBedWithPlant(bedId, plantId) {
   const bed = bedById(bedId);
   const def = plantDef(plantId);
   if (!bed || !def) return;
-  if (bed.cells.some(Boolean) && !confirm(`Fill all 18 squares of "${bed.name}" with ${def.name}?`)) return;
-  bed.cells = Array.from({ length: GRID_TOTAL }, () => ({ type: plantId }));
+  const empty = bed.cells.filter(c => !c).length;
+  if (empty === 0) return;
+  bed.cells = bed.cells.map(c => c || { type: plantId });
   saveState();
   renderBeds();
 }
