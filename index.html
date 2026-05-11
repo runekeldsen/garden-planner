@@ -349,6 +349,7 @@ body {
 .bar-sow { background: #ff9800; }
 .bar-grow { background: #a5d6a7; }
 .bar-harvest { background: #2e7d32; }
+.bar-overwinter { background: repeating-linear-gradient(60deg,#a5d6a7 0,#a5d6a7 5px,#c8e6c9 5px,#c8e6c9 10px); }
 .bar-grow2 { background: #a5d6a7; opacity: 0.55; }
 .bar-harvest2 { background: #2e7d32; opacity: 0.45; }
 .plan-succ-row { display: flex; align-items: center; min-height: 20px; }
@@ -493,7 +494,7 @@ const PLANTS = [
   { id: 'onion',         name: 'Onion',         emoji: '🧅', perSqFt: 16, color: '#a04000', bg: '#fef5e7', cat: 'Alliums',
     height: 'low',    outdoorMonth: 3, companions: ['carrot','lettuce','beetroot','tomato'], avoid: ['beans','peas'] },
   { id: 'garlic',        name: 'Garlic',        emoji: '🧄', perSqFt: 9,  color: '#95a5a6', bg: '#f2f3f4', cat: 'Alliums',
-    height: 'low',    outdoorMonth: 3, companions: ['tomato','cabbage','carrot','rosemary'], avoid: ['beans','peas'] },
+    height: 'low',    outdoorMonth: 10, overwinter: true, companions: ['tomato','cabbage','carrot','rosemary'], avoid: ['beans','peas'] },
   { id: 'leek',          name: 'Leek',          emoji: '🌿', perSqFt: 9,  color: '#1e8449', bg: '#eafaf1', cat: 'Alliums',
     height: 'medium', outdoorMonth: 5, companions: ['carrot','spinach','beetroot'], avoid: [] },
   { id: 'strawberry',    name: 'Strawberry',    emoji: '🍓', perSqFt: 4,  color: '#c0392b', bg: '#fdecea', cat: 'Fruits',
@@ -731,7 +732,7 @@ const PLANT_TIMING = {
   parsnip:       { preGerm: 0,  days: 120, harvest:  8 },
   turnip:        { preGerm: 0,  days: 50,  harvest:  4 },
   onion:         { preGerm: 10, days: 110, harvest:  4 },
-  garlic:        { preGerm: 0,  days: 90,  harvest:  4 },
+  garlic:        { preGerm: 0,  days: 275, harvest:  3 },
   leek:          { preGerm: 10, days: 120, harvest: 12 },
   strawberry:    { preGerm: 0,  days: 60,  harvest:  4 },
   pumpkin:       { preGerm: 3,  days: 100, harvest:  6 },
@@ -818,7 +819,8 @@ function renderPlanBody() {
     if (!def || !t) return;
 
     const planted = plantedDates[id];
-    const outdoorD = planted ? dateToDOY(planted) : doy(def.outdoorMonth, 15);
+    let outdoorD = planted ? dateToDOY(planted) : doy(def.outdoorMonth, 15);
+    if (def.overwinter) outdoorD -= 365; // planted last autumn — shift to negative DOY
     const preGermD = outdoorD - t.preGerm * 7;
     const harvestS = outdoorD + t.days;
     const harvestE = Math.min(harvestS + t.harvest * 7, SEASON_END + 21);
@@ -868,8 +870,10 @@ function renderPlanBody() {
       bars.push(`<div class="plan-bar bar-sow" style="left:${l}%;width:${w}%" title="Sow indoors"></div>`);
     }
     if (r.t.days > 0) {
-      const l = parseFloat(pct(r.outdoorD)), w = Math.max(0.5, parseFloat(pct(r.harvestS)) - l);
-      bars.push(`<div class="plan-bar bar-grow" style="left:${l}%;width:${w}%" title="Growing outdoors"></div>`);
+      const growStart = Math.max(PLAN_S, r.outdoorD);
+      const l = parseFloat(pct(growStart)), w = Math.max(0.5, parseFloat(pct(r.harvestS)) - l);
+      const growCls = r.def.overwinter && r.outdoorD < PLAN_S ? 'bar-overwinter' : 'bar-grow';
+      bars.push(`<div class="plan-bar ${growCls}" style="left:${l}%;width:${w}%" title="${r.def.overwinter ? 'Overwintering — planted last autumn' : 'Growing outdoors'}"></div>`);
     }
     const hl = parseFloat(pct(r.harvestS)), hw = Math.max(0.5, parseFloat(pct(r.harvestE)) - hl);
     bars.push(`<div class="plan-bar bar-harvest" style="left:${hl}%;width:${hw}%" title="Harvest"></div>`);
@@ -972,6 +976,7 @@ function renderPlanBody() {
     <div class="plan-legend">
       <div class="plan-legend-item"><div class="plan-legend-dot" style="background:#ff9800"></div>Sow indoors</div>
       <div class="plan-legend-item"><div class="plan-legend-dot" style="background:#a5d6a7"></div>Growing</div>
+      <div class="plan-legend-item"><div class="plan-legend-dot" style="background:repeating-linear-gradient(60deg,#a5d6a7 0,#a5d6a7 5px,#c8e6c9 5px,#c8e6c9 10px)"></div>Overwintering</div>
       <div class="plan-legend-item"><div class="plan-legend-dot" style="background:#2e7d32"></div>Harvest</div>
       <div class="plan-legend-item"><div class="plan-legend-dot" style="background:#2e7d32;opacity:0.4"></div>Succession sow</div>
       <div class="plan-legend-item"><div class="plan-legend-dot" style="background:#e74c3c;width:4px;border-radius:1px;opacity:0.7"></div>Today</div>
