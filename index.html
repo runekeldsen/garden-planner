@@ -334,10 +334,10 @@ body {
 .plan-row-label { width: 130px; min-width: 130px; display: flex; align-items: flex-start; gap: 5px; padding-right: 8px; }
 .plan-row-icon { width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
 .plan-row-name { font-size: 0.68rem; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.plan-date-wrap { margin-top: 2px; }
-.plan-date-input { font-size: 0.5rem; border: 1px solid #ddd; border-radius: 3px; padding: 1px 2px; color: #888; background: #fafafa; cursor: pointer; width: 92px; touch-action: manipulation; }
-.plan-date-input:focus { outline: none; border-color: #2c5f2e; }
-.plan-date-chip { display: flex; align-items: center; gap: 4px; background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 4px; padding: 2px 4px; }
+.plan-date-wrap { margin-top: 3px; }
+.plan-date-selects { display: flex; gap: 3px; align-items: center; }
+.plan-date-sel { font-size: 0.55rem; border: 1px solid #ddd; border-radius: 3px; padding: 2px 2px; color: #666; background: #fafafa; cursor: pointer; -webkit-appearance: auto; }
+.plan-date-chip { display: flex; align-items: center; gap: 4px; background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 4px; padding: 2px 5px; }
 .plan-date-chip-label { font-size: 0.55rem; color: #2c5f2e; font-weight: 600; }
 .plan-date-chip-clear { background: none; border: none; font-size: 0.75rem; line-height: 1; color: #2c5f2e; cursor: pointer; padding: 0 2px; font-weight: 700; }
 .plan-date-chip-clear:active { color: #c62828; }
@@ -870,9 +870,17 @@ function renderPlanBody() {
       bars.push(`<div class="plan-bar bar-harvest2" style="left:${hl2}%;width:${hw2}%" title="Succession: harvest"></div>`);
     }
 
-    const defaultDate = doyToDateStr(year, r.outdoorD);
     const dateVal = r.planted || '';
     const isSet = !!r.planted;
+    const [selY, selM, selD] = isSet ? dateVal.split('-').map(Number) : [0, 0, 0];
+    const MONTH_SEL_NAMES = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+    const monthOpts = MONTH_SEL_NAMES.map((n,i) =>
+      `<option value="${i+1}"${selM===i+1?' selected':''}>${n}</option>`).join('');
+    const dayOpts = Array.from({length:31},(_,i)=>i+1).map(d =>
+      `<option value="${d}"${selD===d?' selected':''}>${d}</option>`).join('');
+    const chipLabel = isSet
+      ? `${MONTH_SEL_NAMES[selM-1]} ${selD}`
+      : '';
 
     const succIds = succSuggestions(r.def.id, r.harvestE);
     const succHtml = succIds.length ? `
@@ -894,12 +902,17 @@ function renderPlanBody() {
             <div class="plan-date-wrap">
               ${isSet
                 ? `<div class="plan-date-chip">
-                    <span class="plan-date-chip-label">Sået ${dateVal}</span>
+                    <span class="plan-date-chip-label">Sået ${chipLabel}</span>
                     <button class="plan-date-chip-clear" data-clear-id="${r.def.id}">✕</button>
                   </div>`
-                : `<input type="date" class="plan-date-input"
-                    data-id="${r.def.id}" value="" placeholder="${defaultDate}"
-                    title="Sæt sådato for nøjagtig høstberegning">`
+                : `<div class="plan-date-selects">
+                    <select class="plan-date-sel plan-month-sel" data-id="${r.def.id}">
+                      <option value="">Mdr.</option>${monthOpts}
+                    </select>
+                    <select class="plan-date-sel plan-day-sel" data-id="${r.def.id}">
+                      <option value="">Dag</option>${dayOpts}
+                    </select>
+                  </div>`
               }
             </div>
           </div>
@@ -960,18 +973,20 @@ function initPlanSection() {
 
   renderPlanBody();
 
-  function onPlanDateChange(e) {
-    if (!e.target.classList.contains('plan-date-input')) return;
-    const id = e.target.dataset.id;
-    if (e.target.value) {
-      plantedDates[id] = e.target.value;
-    } else {
-      delete plantedDates[id];
+  el.addEventListener('change', e => {
+    const sel = e.target;
+    if (!sel.classList.contains('plan-month-sel') && !sel.classList.contains('plan-day-sel')) return;
+    const id = sel.dataset.id;
+    const wrap = sel.closest('.plan-date-selects');
+    const month = wrap.querySelector('.plan-month-sel').value;
+    const day   = wrap.querySelector('.plan-day-sel').value;
+    if (month && day) {
+      const yr = new Date().getFullYear();
+      plantedDates[id] = `${yr}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      saveState();
+      renderPlanBody();
     }
-    saveState();
-    renderPlanBody();
-  }
-  el.addEventListener('change', onPlanDateChange);
+  });
   el.addEventListener('click', e => {
     const btn = e.target.closest('.plan-date-chip-clear');
     if (!btn) return;
