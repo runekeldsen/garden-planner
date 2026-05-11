@@ -768,11 +768,21 @@ const SUCCESSION = {
   strawberry:  ['spinach','lettuce','kale'],
 };
 
-function succSuggestions(plantId, harvestEndDoy) {
-  return (SUCCESSION[plantId] || []).filter(sid => {
-    const t2 = PLANT_TIMING[sid];
-    return t2 && (harvestEndDoy + t2.days) < SEASON_END + 14;
-  }).slice(0, 2);
+function succSuggestions(plantId, harvestStartDoy) {
+  const list = SUCCESSION[plantId] || [];
+  const results = [];
+  let nextSow = harvestStartDoy;
+  for (const sid of list) {
+    const t = PLANT_TIMING[sid];
+    if (!t) continue;
+    const growEnd = nextSow + t.days;
+    if (growEnd >= SEASON_END) continue; // won't reach harvest before season ends
+    const harvEnd = Math.min(growEnd + t.harvest * 7, SEASON_END + 14);
+    results.push({ id: sid, sowS: nextSow, growE: growEnd, harvE: harvEnd });
+    nextSow = growEnd; // next crop sows when this one starts harvesting
+    if (results.length >= 2 || nextSow >= SEASON_END) break;
+  }
+  return results;
 }
 
 function doyToDateStr(year, d) {
@@ -876,18 +886,14 @@ function renderPlanBody() {
       ? `${MONTH_SEL_NAMES[selM-1]} ${selD}`
       : '';
 
-    const succIds = succSuggestions(r.def.id, r.harvestE);
-    const succRows = succIds.map(sid => {
-      const sd = plantDef(sid);
-      const st = PLANT_TIMING[sid];
-      if (!sd || !st) return '';
-      const sowS = r.harvestS;
-      const growE = sowS + st.days;
-      const harvE = Math.min(growE + st.harvest * 7, SEASON_END + 14);
-      const gl = pct(Math.min(sowS, PLAN_E));
-      const gw = Math.max(0.3, parseFloat(pct(Math.min(growE, PLAN_E))) - parseFloat(gl));
-      const hl = pct(Math.min(growE, PLAN_E));
-      const hw = Math.max(0.3, parseFloat(pct(Math.min(harvE, PLAN_E))) - parseFloat(hl));
+    const succItems = succSuggestions(r.def.id, r.harvestS);
+    const succRows = succItems.map(succ => {
+      const sd = plantDef(succ.id);
+      if (!sd) return '';
+      const gl = pct(Math.min(succ.sowS, PLAN_E));
+      const gw = Math.max(0.3, parseFloat(pct(Math.min(succ.growE, PLAN_E))) - parseFloat(gl));
+      const hl = pct(Math.min(succ.growE, PLAN_E));
+      const hw = Math.max(0.3, parseFloat(pct(Math.min(succ.harvE, PLAN_E))) - parseFloat(hl));
       return `<div class="plan-succ-row">
         <div class="plan-succ-row-label">
           <span class="plan-succ-row-arrow">↳</span>
