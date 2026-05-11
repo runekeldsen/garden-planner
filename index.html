@@ -76,8 +76,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 7px 4px 5px;
+  gap: 2px;
+  padding: 6px 4px 5px;
   border-radius: 6px;
   margin-bottom: 2px;
   cursor: grab;
@@ -94,15 +94,19 @@ body {
 .pi-emoji { width: 30px; height: 30px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 .pi-info { width: 100%; text-align: center; }
 .pi-name { font-size: 0.63rem; font-weight: 500; color: #333; white-space: normal; line-height: 1.2; text-align: center; overflow: visible; }
-.pi-sfg { font-size: 0.61rem; color: #aaa; }
+.pi-sfg { display: none; }
 .pi-badge {
-  font-size: 0.6rem;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 0.5rem;
   font-weight: 700;
   color: #2c5f2e;
   background: #e8f5e9;
-  padding: 1px 5px;
-  border-radius: 10px;
+  padding: 0px 3px;
+  border-radius: 8px;
   white-space: nowrap;
+  line-height: 1.5;
 }
 
 /* ── Content ── */
@@ -321,7 +325,6 @@ body {
   .plant-item { flex-direction: column; align-items: center; gap: 2px; min-width: unset; max-width: 69px; padding: 5px 3px; border-radius: 6px; }
   .pi-dot { display: none; }
   .pi-fill { display: none; }
-  .pi-badge { display: none; }
   .pi-sfg { display: none; }
   .pi-info { flex: none; width: 100%; }
   .pi-name { font-size: 0.6rem; white-space: normal; line-height: 1.2; text-align: center; overflow: visible; }
