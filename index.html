@@ -342,18 +342,19 @@ body {
 .plan-date-chip-clear { background: none; border: none; font-size: 0.75rem; line-height: 1; color: #2c5f2e; cursor: pointer; padding: 0 2px; font-weight: 700; }
 .plan-date-chip-clear:active { color: #c62828; }
 .plan-row-bars { flex: 1; }
-.plan-bars-track { position: relative; height: 26px; }
-.plan-bars-track .plan-bar { position: absolute; bottom: 0; height: 12px; border-radius: 3px; min-width: 3px; }
+.plan-bars-track { position: relative; height: 12px; }
+.plan-bar { position: absolute; height: 100%; border-radius: 3px; min-width: 3px; }
 .plan-month-bar { height: 22px; position: relative; }
 .plan-month-lbl { position: absolute; font-size: 0.55rem; color: #bbb; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; transform: translateX(-50%); top: 4px; white-space: nowrap; }
 .bar-sow { background: #ff9800; }
 .bar-grow { background: #a5d6a7; }
 .bar-harvest { background: #2e7d32; }
-.bar-grow2 { background: #a5d6a7; opacity: 0.4; }
-.bar-harvest2 { background: #2e7d32; opacity: 0.38; }
-.plan-succ-inline { position: absolute; top: 1px; display: flex; align-items: center; gap: 3px; }
-.plan-succ-arrow { font-size: 0.55rem; color: #aaa; margin-right: 1px; }
-.plan-succ-plant { display: flex; align-items: center; gap: 2px; background: #f0fbf5; border: 1px solid #c8e6c9; border-radius: 10px; padding: 1px 5px; font-size: 0.55rem; color: #2c5f2e; white-space: nowrap; }
+.bar-grow2 { background: #a5d6a7; opacity: 0.55; }
+.bar-harvest2 { background: #2e7d32; opacity: 0.45; }
+.plan-succ-row { display: flex; align-items: center; min-height: 20px; }
+.plan-succ-row-label { width: 130px; min-width: 130px; display: flex; align-items: center; gap: 4px; padding-right: 8px; padding-left: 14px; }
+.plan-succ-row-arrow { font-size: 0.65rem; color: #bbb; flex-shrink: 0; }
+.plan-succ-row-name { font-size: 0.6rem; color: #558b2f; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .plan-legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 18px 16px; border-top: 1px solid #f5f0e8; }
 .plan-legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.62rem; color: #666; }
 .plan-legend-dot { width: 14px; height: 10px; border-radius: 2px; flex-shrink: 0; }
@@ -862,12 +863,6 @@ function renderPlanBody() {
     }
     const hl = parseFloat(pct(r.harvestS)), hw = Math.max(0.5, parseFloat(pct(r.harvestE)) - hl);
     bars.push(`<div class="plan-bar bar-harvest" style="left:${hl}%;width:${hw}%" title="Harvest"></div>`);
-    if (r.suc) {
-      const gl2 = parseFloat(pct(r.suc.s2)), gw2 = Math.max(0.5, parseFloat(pct(r.suc.h2s)) - gl2);
-      bars.push(`<div class="plan-bar bar-grow2" style="left:${gl2}%;width:${gw2}%" title="Succession: growing"></div>`);
-      const hl2 = parseFloat(pct(r.suc.h2s)), hw2 = Math.max(0.5, parseFloat(pct(r.suc.h2e)) - hl2);
-      bars.push(`<div class="plan-bar bar-harvest2" style="left:${hl2}%;width:${hw2}%" title="Succession: harvest"></div>`);
-    }
 
     const dateVal = r.planted || '';
     const isSet = !!r.planted;
@@ -882,13 +877,31 @@ function renderPlanBody() {
       : '';
 
     const succIds = succSuggestions(r.def.id, r.harvestE);
-    const succLeft = pct(Math.min(r.harvestS, PLAN_E));
-    const succInline = succIds.length ? `
-      <div class="plan-succ-inline" style="left:${succLeft}%">
-        <span class="plan-succ-arrow">→</span>
-        ${succIds.map(sid => { const sd = plantDef(sid); return sd
-          ? `<span class="plan-succ-plant">${plantIcon(sd,12)} ${sd.name}</span>` : ''; }).join('')}
-      </div>` : '';
+    const succRows = succIds.map(sid => {
+      const sd = plantDef(sid);
+      const st = PLANT_TIMING[sid];
+      if (!sd || !st) return '';
+      const sowS = r.harvestS;
+      const growE = sowS + st.days;
+      const harvE = Math.min(growE + st.harvest * 7, SEASON_END + 14);
+      const gl = pct(Math.min(sowS, PLAN_E));
+      const gw = Math.max(0.3, parseFloat(pct(Math.min(growE, PLAN_E))) - parseFloat(gl));
+      const hl = pct(Math.min(growE, PLAN_E));
+      const hw = Math.max(0.3, parseFloat(pct(Math.min(harvE, PLAN_E))) - parseFloat(hl));
+      return `<div class="plan-succ-row">
+        <div class="plan-succ-row-label">
+          <span class="plan-succ-row-arrow">↳</span>
+          ${plantIcon(sd, 14)}
+          <span class="plan-succ-row-name">${sd.name}</span>
+        </div>
+        <div class="plan-row-bars">
+          <div class="plan-bars-track">
+            <div class="plan-bar bar-grow2" style="left:${gl}%;width:${gw}%" title="${sd.name}: growing"></div>
+            <div class="plan-bar bar-harvest2" style="left:${hl}%;width:${hw}%" title="${sd.name}: harvest"></div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
 
     return `
       <div class="plan-row">
@@ -915,12 +928,10 @@ function renderPlanBody() {
           </div>
         </div>
         <div class="plan-row-bars">
-          <div class="plan-bars-track">
-            ${bars.join('')}
-            ${succInline}
-          </div>
+          <div class="plan-bars-track">${bars.join('')}</div>
         </div>
-      </div>`;
+      </div>
+      ${succRows}`;
   }).join('');
 
   planBody.innerHTML = `
