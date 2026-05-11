@@ -968,6 +968,16 @@ function initPlanSection() {
   }
   el.addEventListener('change', onPlanDateChange);
   el.addEventListener('input', onPlanDateChange);
+  // iOS "Nulstil" clears the value silently — catch it on focusout
+  el.addEventListener('focusout', e => {
+    if (!e.target.classList.contains('plan-date-input')) return;
+    const id = e.target.dataset.id;
+    if (!e.target.value && plantedDates[id]) {
+      delete plantedDates[id];
+      saveState();
+      renderPlanBody();
+    }
+  });
   el.addEventListener('click', e => {
     const btn = e.target.closest('.plan-date-clear');
     if (!btn) return;
