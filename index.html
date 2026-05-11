@@ -948,20 +948,19 @@ function initPlanSection() {
 
   renderPlanBody();
 
-  el.addEventListener('change', e => {
-    if (e.target.classList.contains('plan-date-input')) {
-      const id = e.target.dataset.id;
-      if (e.target.value) {
-        plantedDates[id] = e.target.value;
-        e.target.classList.add('is-set');
-      } else {
-        delete plantedDates[id];
-        e.target.classList.remove('is-set');
-      }
-      saveState();
-      renderPlanBody();
+  function onPlanDateChange(e) {
+    if (!e.target.classList.contains('plan-date-input')) return;
+    const id = e.target.dataset.id;
+    if (e.target.value) {
+      plantedDates[id] = e.target.value;
+    } else {
+      delete plantedDates[id];
     }
-  });
+    saveState();
+    renderPlanBody();
+  }
+  el.addEventListener('change', onPlanDateChange);
+  el.addEventListener('input', onPlanDateChange);
 }
 
 function initSfModal() {
