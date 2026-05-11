@@ -297,6 +297,12 @@ body {
 .sidebar-fav-clear { font-size: 0.6rem; color: #c0392b; cursor: pointer; margin-left: 6px; opacity: 0.7; }
 .sidebar-fav-clear:hover { opacity: 1; }
 .sf-using { font-size: 0.68rem; color: #888; margin-bottom: 8px; }
+.pi-fill { font-size: 0.58rem; color: #2c5f2e; cursor: pointer; opacity: 0; transition: opacity 0.12s; padding: 1px 5px; border-radius: 3px; border: 1px solid #2c5f2e; white-space: nowrap; flex-shrink: 0; }
+.plant-item:hover .pi-fill { opacity: 0.65; }
+.pi-fill:hover { opacity: 1 !important; background: #e8f5e9; }
+.fill-dd { position: fixed; background: white; border: 1px solid #ddd; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.18); z-index: 300; padding: 4px 0; min-width: 120px; }
+.fill-dd-item { padding: 6px 14px; font-size: 0.78rem; cursor: pointer; color: #333; white-space: nowrap; }
+.fill-dd-item:hover { background: #f0fbf5; color: #2c5f2e; }
 </style>
 </head>
 <body>
@@ -713,6 +719,43 @@ function sqCellAt(x, y) {
   return el ? el.closest('.sq-cell') : null;
 }
 
+/* ── Fill bed with single plant ── */
+let fillDd = null;
+
+function showFillDropdown(e, plantId) {
+  if (fillDd) { fillDd.remove(); fillDd = null; }
+  const dd = document.createElement('div');
+  dd.className = 'fill-dd';
+  beds.forEach(bed => {
+    const opt = document.createElement('div');
+    opt.className = 'fill-dd-item';
+    opt.textContent = bed.name;
+    opt.addEventListener('pointerdown', ev => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      fillBedWithPlant(bed.id, plantId);
+      dd.remove(); fillDd = null;
+    });
+    dd.appendChild(opt);
+  });
+  const r = e.target.getBoundingClientRect();
+  dd.style.left = (r.right + 6) + 'px';
+  dd.style.top  = r.top + 'px';
+  document.body.appendChild(dd);
+  fillDd = dd;
+  setTimeout(() => document.addEventListener('pointerdown', () => { dd.remove(); fillDd = null; }, { once: true }), 0);
+}
+
+function fillBedWithPlant(bedId, plantId) {
+  const bed = bedById(bedId);
+  const def = plantDef(plantId);
+  if (!bed || !def) return;
+  if (bed.cells.some(Boolean) && !confirm(`Fill all 18 squares of "${bed.name}" with ${def.name}?`)) return;
+  bed.cells = Array.from({ length: GRID_TOTAL }, () => ({ type: plantId }));
+  saveState();
+  renderBeds();
+}
+
 /* ── Sidebar ── */
 function renderSidebar() {
   // Update title: show marked count + clear link
@@ -752,7 +795,13 @@ function renderSidebar() {
           <div class="pi-sfg">${plant.perSqFt}/sq ft · out ${MONTH_SHORT[plant.outdoorMonth]}+</div>
         </div>
         <div class="pi-badge">×${plant.perSqFt}</div>
+        <span class="pi-fill" title="Fill a bed with this plant">fill</span>
       `;
+      item.querySelector('.pi-fill').addEventListener('pointerdown', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        showFillDropdown(e, plant.id);
+      });
       item.querySelector('.pi-dot').addEventListener('pointerdown', e => {
         e.preventDefault();
         e.stopPropagation();
