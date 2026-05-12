@@ -356,6 +356,32 @@ body {
 .bed-suggest-tag:hover::after,
 .bed-suggest-tag:hover::before { opacity: 1; }
 
+/* ── Plant sidebar tooltip popup ── */
+.plant-tip-popup {
+  position: fixed;
+  background: #2c3e50;
+  color: #fff;
+  font-size: 0.65rem;
+  line-height: 1.55;
+  padding: 9px 12px;
+  border-radius: 7px;
+  width: 220px;
+  white-space: pre-line;
+  z-index: 600;
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  transform: translateY(-50%);
+}
+.plant-tip-popup::before {
+  content: '';
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 6px solid transparent;
+  border-right-color: #2c3e50;
+}
+
 /* ── Plant marking ── */
 .pi-dot { position: absolute; top: 5px; left: 5px; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #ccc; cursor: pointer; transition: background 0.12s, border-color 0.12s; }
 .pi-dot.marked { background: #2c5f2e; border-color: #2c5f2e; }
@@ -1271,6 +1297,68 @@ function fillBedWithPlant(bedId, plantId) {
   renderBeds();
 }
 
+/* ── Plant tooltip ── */
+const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function buildPlantTooltip(plant) {
+  const t = PLANT_TIMING[plant.id];
+  const lines = [];
+
+  const heightLabel = { tall: 'Tall (>80 cm)', medium: 'Medium (40–80 cm)', low: 'Low (<40 cm)' }[plant.height];
+  lines.push(`${plant.perSqFt} per sq ft · ${heightLabel}`);
+
+  if (t) {
+    if (plant.overwinter) {
+      lines.push(`🌱 Plant in autumn — overwinters in the ground`);
+      lines.push(`🌾 Harvest: early summer (~${t.days} days)`);
+    } else if (t.preGerm > 0) {
+      const indoorIdx = ((plant.outdoorMonth - 1 - Math.round(t.preGerm / 4.33)) + 12) % 12;
+      lines.push(`🌱 Start indoors: ${MN[indoorIdx]} (${t.preGerm} wks before planting out)`);
+      lines.push(`🏡 Plant outdoors: from ${MN[plant.outdoorMonth - 1]}`);
+      if (t.days > 0) {
+        const hStart = Math.min(plant.outdoorMonth - 1 + Math.round(t.days / 30), 11);
+        const hEnd   = Math.min(hStart + Math.round(t.harvest / 4), 11);
+        lines.push(`🌾 Harvest: ~${t.days} days after planting · ${MN[hStart]}${hEnd !== hStart ? '–' + MN[hEnd] : ''}`);
+      }
+    } else {
+      lines.push(`🌱 Sow direct outdoors: from ${MN[plant.outdoorMonth - 1]}`);
+      if (t.days > 0) {
+        const hStart = Math.min(plant.outdoorMonth - 1 + Math.round(t.days / 30), 11);
+        const hEnd   = Math.min(hStart + Math.round(t.harvest / 4), 11);
+        lines.push(`🌾 Harvest: ~${t.days} days after sowing · ${MN[hStart]}${hEnd !== hStart ? '–' + MN[hEnd] : ''}`);
+      }
+    }
+  }
+
+  if (t && t.harvest >= 12) lines.push(`✂️ Cut regularly to keep producing`);
+  if (PLANT_NOTES[plant.id])  lines.push(`💡 ${PLANT_NOTES[plant.id]}`);
+
+  return lines.join('\n');
+}
+
+let plantTipEl = null;
+
+function showPlantTip(anchorEl, plant) {
+  hidePlantTip();
+  const r = anchorEl.getBoundingClientRect();
+  plantTipEl = document.createElement('div');
+  plantTipEl.className = 'plant-tip-popup';
+  plantTipEl.textContent = buildPlantTooltip(plant);
+  plantTipEl.style.left = (r.right + 10) + 'px';
+  plantTipEl.style.top  = (r.top + r.height / 2) + 'px';
+  document.body.appendChild(plantTipEl);
+  // Clamp so it doesn't overflow viewport vertically
+  const pr = plantTipEl.getBoundingClientRect();
+  if (pr.bottom > window.innerHeight - 6)
+    plantTipEl.style.top = (window.innerHeight - pr.height - 6) + 'px';
+  if (pr.top < 6)
+    plantTipEl.style.top = '6px';
+}
+
+function hidePlantTip() {
+  if (plantTipEl) { plantTipEl.remove(); plantTipEl = null; }
+}
+
 /* ── Sidebar ── */
 function renderSidebar() {
   // Update title: show marked count + clear link
@@ -1301,7 +1389,6 @@ function renderSidebar() {
       const marked = favPlants.has(plant.id);
       const item = document.createElement('div');
       item.className = 'plant-item' + (marked ? ' fav' : '');
-      item.title = `${plant.name} · ${plant.perSqFt}/sq ft · outdoors from ${MONTH_SHORT[plant.outdoorMonth]} in Denmark`;
       item.innerHTML = `
         <span class="pi-dot${marked ? ' marked' : ''}" title="Mark for Smart Fill"></span>
         <span class="pi-emoji">${plantIcon(plant, 22)}</span>
@@ -1331,6 +1418,8 @@ function renderSidebar() {
         item.classList.add('dragging-source');
         startDrag(e, plant.id, 'palette', null, null);
       });
+      item.addEventListener('mouseenter', () => showPlantTip(item, plant));
+      item.addEventListener('mouseleave', hidePlantTip);
       el.appendChild(item);
     });
   });
