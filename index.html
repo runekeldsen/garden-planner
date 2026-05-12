@@ -313,6 +313,48 @@ body {
 .bed-guidance-icon { flex-shrink: 0; font-size: 0.8rem; }
 .bed-guidance-warn { color: #8b3a0f; }
 .bed-guidance-good { color: #1b5e20; }
+.bed-suggest-tag {
+  display: inline-block;
+  position: relative;
+  cursor: help;
+  border-bottom: 1px dotted #999;
+  white-space: nowrap;
+}
+.bed-suggest-tag::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2c3e50;
+  color: #fff;
+  font-size: 0.62rem;
+  line-height: 1.45;
+  padding: 6px 10px;
+  border-radius: 5px;
+  width: 190px;
+  white-space: normal;
+  z-index: 500;
+  pointer-events: none;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.25);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.bed-suggest-tag::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #2c3e50;
+  z-index: 500;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.bed-suggest-tag:hover::after,
+.bed-suggest-tag:hover::before { opacity: 1; }
 
 /* ── Plant marking ── */
 .pi-dot { position: absolute; top: 5px; left: 5px; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #ccc; cursor: pointer; transition: background 0.12s, border-color 0.12s; }
@@ -1294,6 +1336,28 @@ function renderSidebar() {
   });
 }
 
+const PLANT_NOTES = {
+  marigold:   'Repels aphids, whitefly & nematodes',
+  nasturtium: 'Lures aphids away as a trap crop; flowers are edible',
+  borage:     'Attracts pollinators & deters tomato hornworm',
+  lavender:   'Repels moths & aphids; draws in bees',
+  basil:      'Repels aphids & improves tomato flavour',
+  chives:     'Deters aphids & carrot fly',
+  dill:       'Attracts beneficial insects & pollinators',
+  mint:       'Repels flea beetles, aphids & ants',
+  rosemary:   'Repels carrot fly & cabbage moth',
+  thyme:      'Repels cabbage worm & whitefly',
+  parsley:    'Attracts predatory insects that control pests',
+  garlic:     'Deters aphids, slugs & fungal disease',
+  onion:      'Repels carrot fly & aphids',
+  leek:       'Deters carrot fly alongside root veg',
+  peas:       'Fixes nitrogen, enriching the soil',
+  beans:      'Fixes nitrogen, enriching the soil',
+  broad_beans:'Fixes nitrogen, enriching the soil',
+  snap_peas:  'Fixes nitrogen, enriching the soil',
+  edamame:    'Fixes nitrogen, enriching the soil',
+};
+
 /* ── Bed guidance ── */
 function buildBedGuidance(bed) {
   const plantedIds = [...new Set(bed.cells.filter(Boolean).map(c => c.type))];
@@ -1362,7 +1426,14 @@ function buildBedGuidance(bed) {
     if (suggested.length) {
       const items = suggested.slice(0, 3).map(id => {
         const d = plantDef(id);
-        return `${d.emoji} ${d.name}`;
+        const withNames = plantedIds
+          .filter(pid => { const pd = plantDef(pid); return pd && (pd.companions.includes(id) || d.companions.includes(pid)); })
+          .map(pid => plantDef(pid).name);
+        const parts = [];
+        if (PLANT_NOTES[id]) parts.push(PLANT_NOTES[id]);
+        if (withNames.length) parts.push(`Good with: ${withNames.join(', ')}`);
+        const tip = parts.join(' · ');
+        return `<span class="bed-suggest-tag" data-tip="${tip}" title="${tip}">${d.emoji} ${d.name}</span>`;
       }).join(' &nbsp;·&nbsp; ');
       tips.push(`<div class="bed-guidance-item"><span class="bed-guidance-icon">💡</span><span>Try adding: ${items}</span></div>`);
     }
