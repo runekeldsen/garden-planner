@@ -1367,9 +1367,11 @@ function buildPlantTooltip(plant) {
 }
 
 let plantTipEl = null;
+let plantTipTimer = null;
 
 function showPlantTip(anchorEl, plant) {
-  hidePlantTip();
+  clearTimeout(plantTipTimer);
+  if (plantTipEl) { plantTipEl.remove(); plantTipEl = null; }
   const r = anchorEl.getBoundingClientRect();
   plantTipEl = document.createElement('div');
   plantTipEl.className = 'plant-tip-popup';
@@ -1386,7 +1388,10 @@ function showPlantTip(anchorEl, plant) {
 }
 
 function hidePlantTip() {
-  if (plantTipEl) { plantTipEl.remove(); plantTipEl = null; }
+  clearTimeout(plantTipTimer);
+  plantTipTimer = setTimeout(() => {
+    if (plantTipEl) { plantTipEl.remove(); plantTipEl = null; }
+  }, 300);
 }
 
 /* ── Sidebar ── */
