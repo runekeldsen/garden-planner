@@ -296,6 +296,24 @@ body {
 .bed-smartfill:hover { opacity: 1 !important; background: #e8f5e9; }
 .bed-compass { font-size: 0.58rem; color: #bbb; letter-spacing: 0.04em; display: flex; justify-content: space-between; padding: 1px 4px; }
 
+/* ── Bed guidance ── */
+.bed-guidance {
+  font-size: 0.67rem;
+  color: #444;
+  background: #f7f3ec;
+  border: 1px solid #e0d8cc;
+  border-radius: 5px;
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 1.4;
+}
+.bed-guidance-item { display: flex; align-items: flex-start; gap: 5px; }
+.bed-guidance-icon { flex-shrink: 0; font-size: 0.8rem; }
+.bed-guidance-warn { color: #8b3a0f; }
+.bed-guidance-good { color: #1b5e20; }
+
 /* ── Plant marking ── */
 .pi-dot { position: absolute; top: 5px; left: 5px; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #ccc; cursor: pointer; transition: background 0.12s, border-color 0.12s; }
 .pi-dot.marked { background: #2c5f2e; border-color: #2c5f2e; }
@@ -393,6 +411,7 @@ body {
   .bed-clear, .bed-smartfill { opacity: 0.65; }
   .bed-dims { display: none; }
   .bed-compass { font-size: 0.5rem; }
+  .bed-guidance { font-size: 0.58rem; padding: 4px 7px; }
   .sf-card { width: 92vw; max-width: 92vw; }
 }
 </style>
@@ -1263,6 +1282,82 @@ function renderSidebar() {
   });
 }
 
+/* ── Bed guidance ── */
+function buildBedGuidance(bed) {
+  const plantedIds = [...new Set(bed.cells.filter(Boolean).map(c => c.type))];
+  const el = document.createElement('div');
+  el.className = 'bed-guidance';
+
+  if (plantedIds.length === 0) { el.style.display = 'none'; return el; }
+
+  const tips = [];
+
+  // 1. Conflicts – most important, show first
+  for (let i = 0; i < plantedIds.length && tips.length < 2; i++) {
+    for (let j = i + 1; j < plantedIds.length && tips.length < 2; j++) {
+      const a = plantDef(plantedIds[i]), b = plantDef(plantedIds[j]);
+      if (!a || !b) continue;
+      if (a.avoid.includes(b.id) || b.avoid.includes(a.id))
+        tips.push(`<div class="bed-guidance-item bed-guidance-warn"><span class="bed-guidance-icon">⚠️</span><span>${a.name} and ${b.name} don't grow well together</span></div>`);
+    }
+  }
+
+  // 2. Height warning: tall plants in south columns (4-5) shade shorter ones
+  const tallInSouth = bed.cells.some((c, i) => {
+    if (!c) return false;
+    const d = plantDef(c.type);
+    return d && d.height === 'tall' && (i % GRID_COLS) >= 4;
+  });
+  if (tallInSouth)
+    tips.push(`<div class="bed-guidance-item bed-guidance-warn"><span class="bed-guidance-icon">☀️</span><span>Tall plants in south columns may shade neighbours — move them to the north (left) side</span></div>`);
+
+  // 3. Good companion pairs already present
+  const goodPairs = [];
+  for (let i = 0; i < plantedIds.length; i++) {
+    for (let j = i + 1; j < plantedIds.length; j++) {
+      const a = plantDef(plantedIds[i]), b = plantDef(plantedIds[j]);
+      if (!a || !b) continue;
+      if ((a.companions.includes(b.id) || b.companions.includes(a.id)) && !a.avoid.includes(b.id) && !b.avoid.includes(a.id))
+        goodPairs.push(`${a.name} + ${b.name}`);
+    }
+  }
+  if (goodPairs.length)
+    tips.push(`<div class="bed-guidance-item bed-guidance-good"><span class="bed-guidance-icon">✅</span><span>Good pairing: ${goodPairs.slice(0, 2).join(' · ')}</span></div>`);
+
+  // 4. Nitrogen bonus: legumes + heavy feeders
+  const legume = plantedIds.find(id => plantDef(id)?.cat === 'Legumes');
+  const feeder = plantedIds.find(id => ['tomato','cherry_tomato','pepper','eggplant','zucchini','cucumber','broccoli','cauliflower','kale'].includes(id));
+  if (legume && feeder)
+    tips.push(`<div class="bed-guidance-item"><span class="bed-guidance-icon">🌿</span><span>${plantDef(legume).name} fixes nitrogen in the soil, giving ${plantDef(feeder).name} a boost</span></div>`);
+
+  // 5. Suggestion: one plant that would complement what's here
+  if (plantedIds.length < 5 && bed.cells.some(c => !c)) {
+    const suggested = [];
+    plantedIds.forEach(id => {
+      const d = plantDef(id);
+      if (!d) return;
+      d.companions.forEach(cid => {
+        if (plantedIds.includes(cid) || suggested.includes(cid)) return;
+        const cd = plantDef(cid);
+        if (!cd) return;
+        // Only suggest if it conflicts with nothing already planted
+        const safe = !plantedIds.some(pid => {
+          const pd = plantDef(pid);
+          return pd && (pd.avoid.includes(cid) || cd.avoid.includes(pid));
+        });
+        if (safe) suggested.push(cid);
+      });
+    });
+    if (suggested.length) {
+      const s = plantDef(suggested[0]);
+      tips.push(`<div class="bed-guidance-item"><span class="bed-guidance-icon">💡</span><span>Consider adding ${s.name} — a good companion for what's planted here</span></div>`);
+    }
+  }
+
+  el.innerHTML = tips.join('');
+  return el;
+}
+
 /* ── Beds ── */
 function renderBeds() {
   const grid = document.getElementById('bedsGrid');
@@ -1334,7 +1429,7 @@ function buildBedWrap(bed) {
   compassEl.className = 'bed-compass';
   compassEl.innerHTML = '<span>← North</span><span>South →</span>';
 
-  wrap.append(labelRow, bedEl, compassEl);
+  wrap.append(labelRow, bedEl, compassEl, buildBedGuidance(bed));
   return wrap;
 }
 
