@@ -412,6 +412,7 @@ body {
 .tag-plant { background: #e8f5e9; color: #1b5e20; }
 .tag-harvest { background: #e3f2fd; color: #1565c0; }
 .tag-succession { background: #fce4ec; color: #880e4f; }
+.tag-feed { background: #efebe9; color: #4e342e; }
 .plan-gantt { padding: 14px 18px 4px; overflow-x: auto; }
 .plan-gantt-inner { min-width: 520px; }
 .plan-tl-wrap { position: relative; }
@@ -952,6 +953,35 @@ function renderPlanBody() {
       actions.push({ type: 'succession', text: `Sow ${def.name} again for a second harvest`, def });
       actSeen.add(k('succ'));
     }
+
+    // Fertiliser actions
+    const feedCat = FEEDING[id];
+    if (feedCat === 'heavy') {
+      const prepMonth = def.outdoorMonth > 1 ? def.outdoorMonth - 1 : 12;
+      const midMonth  = Math.min(def.outdoorMonth + 2, 12);
+      if (prepMonth === curMonth && !actSeen.has(k('prep'))) {
+        actions.push({ type: 'feed', text: `Prepare ${def.name} bed — dig in compost + slow-release fertilizer`, def });
+        actSeen.add(k('prep'));
+      }
+      if (def.outdoorMonth === curMonth && !actSeen.has(k('feed1'))) {
+        actions.push({ type: 'feed', text: `Feed ${def.name} with balanced NPK when planting out`, def });
+        actSeen.add(k('feed1'));
+      }
+      if (midMonth === curMonth && !actSeen.has(k('feed2'))) {
+        actions.push({ type: 'feed', text: `Mid-season top-feed ${def.name} with balanced NPK`, def });
+        actSeen.add(k('feed2'));
+      }
+    }
+    if (id === 'strawberry') {
+      if (curMonth === 3 && !actSeen.has(k('straw_compost'))) {
+        actions.push({ type: 'feed', text: `Top-dress strawberry bed with compost and rake in gently`, def });
+        actSeen.add(k('straw_compost'));
+      }
+      if ((curMonth === 5 || curMonth === 6) && !actSeen.has(k('straw_k'))) {
+        actions.push({ type: 'feed', text: `Apply potassium-rich feed to strawberries as they flower`, def });
+        actSeen.add(k('straw_k'));
+      }
+    }
   });
 
   rows.sort((a, b) => a.outdoorD - b.outdoorD || a.def.name.localeCompare(b.def.name));
@@ -961,7 +991,7 @@ function renderPlanBody() {
     {n:'Jan',d:1},{n:'Feb',d:32},{n:'Mar',d:60},{n:'Apr',d:91},{n:'May',d:121},
     {n:'Jun',d:152},{n:'Jul',d:182},{n:'Aug',d:213},{n:'Sep',d:244},{n:'Oct',d:274},{n:'Nov',d:305}
   ];
-  const tagLbl = { sow:'Sow indoors', plant:'Plant out', harvest:'Harvest', succession:'Succession' };
+  const tagLbl = { sow:'Sow indoors', plant:'Plant out', harvest:'Harvest', succession:'Succession', feed:'Fertilise' };
 
   const rowsHtml = rows.map(r => {
     const bars = [];
@@ -1330,6 +1360,7 @@ function buildPlantTooltip(plant) {
   }
 
   if (t && t.harvest >= 12) lines.push(`✂️ Cut regularly to keep producing`);
+  if (FEEDING_LABEL[FEEDING[plant.id]]) lines.push(FEEDING_LABEL[FEEDING[plant.id]]);
   if (PLANT_NOTES[plant.id])  lines.push(`💡 ${PLANT_NOTES[plant.id]}`);
 
   return lines.join('\n');
@@ -1424,6 +1455,24 @@ function renderSidebar() {
   });
 }
 
+const FEEDING = {
+  tomato:'heavy', cherry_tomato:'heavy', pepper:'heavy', eggplant:'heavy',
+  zucchini:'heavy', cucumber:'heavy', pumpkin:'heavy',
+  broccoli:'heavy', cabbage:'heavy', kale:'heavy', cauliflower:'heavy', spinach:'heavy', leek:'heavy',
+  lettuce:'medium', onion:'medium', garlic:'medium', carrot:'medium',
+  beetroot:'medium', parsnip:'medium', turnip:'medium', asparagus:'medium', strawberry:'medium',
+  basil:'light', parsley:'light', dill:'light', chives:'light',
+  mint:'light', rosemary:'light', thyme:'light',
+  radish:'light', marigold:'light', nasturtium:'light', borage:'light', lavender:'light',
+  peas:'fixer', beans:'fixer', broad_beans:'fixer', snap_peas:'fixer', edamame:'fixer',
+};
+const FEEDING_LABEL = {
+  heavy:  '🪣 Heavy feeder — enrich with compost + balanced NPK',
+  medium: '🪣 Medium feeder — annual compost top-dressing is enough',
+  light:  '🪣 Light feeder — avoid over-fertilising (reduces herb flavour)',
+  fixer:  '🌿 Nitrogen fixer — improves soil, no extra feed needed',
+};
+
 const PLANT_NOTES = {
   marigold:   'Repels aphids, whitefly & nematodes',
   nasturtium: 'Lures aphids away as a trap crop; flowers are edible',
@@ -1494,7 +1543,19 @@ function buildBedGuidance(bed) {
   if (legume && feeder)
     tips.push(`<div class="bed-guidance-item"><span class="bed-guidance-icon">🌿</span><span>${plantDef(legume).name} fixes nitrogen in the soil, giving ${plantDef(feeder).name} a boost</span></div>`);
 
-  // 5. Suggestions: plants (incl. flowers) that would complement what's here
+  // 5. Soil & feeding needs
+  const feedCats = [...new Set(plantedIds.map(id => FEEDING[id]).filter(Boolean))];
+  const hasHeavy = feedCats.includes('heavy');
+  const hasLight = feedCats.includes('light');
+  const hasFixer = feedCats.includes('fixer');
+  if (hasHeavy && hasLight)
+    tips.push(`<div class="bed-guidance-item bed-guidance-warn"><span class="bed-guidance-icon">⚠️</span><span>Mixed feeding needs — heavy feeders need rich compost; light feeders (herbs) prefer lean soil. Consider separating them.</span></div>`);
+  else if (hasHeavy)
+    tips.push(`<div class="bed-guidance-item"><span class="bed-guidance-icon">🪣</span><span>Heavy feeders — enrich with compost + balanced NPK before planting; top-feed mid-season</span></div>`);
+  else if (hasLight && !hasFixer)
+    tips.push(`<div class="bed-guidance-item"><span class="bed-guidance-icon">🪣</span><span>Light feeders — avoid over-fertilising; lean soil concentrates flavour in herbs</span></div>`);
+
+  // 6. Suggestions: plants (incl. flowers) that would complement what's here
   {
     const suggested = [];
     // Bidirectional: scan all PLANTS, not just companions of planted plants
