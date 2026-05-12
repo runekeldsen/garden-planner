@@ -1343,7 +1343,7 @@ function buildBedGuidance(bed) {
     tips.push(`<div class="bed-guidance-item"><span class="bed-guidance-icon">🌿</span><span>${plantDef(legume).name} fixes nitrogen in the soil, giving ${plantDef(feeder).name} a boost</span></div>`);
 
   // 5. Suggestions: plants (incl. flowers) that would complement what's here
-  if (bed.cells.some(c => !c)) {
+  {
     const suggested = [];
     // Bidirectional: scan all PLANTS, not just companions of planted plants
     PLANTS.forEach(candidate => {
