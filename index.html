@@ -1698,6 +1698,8 @@ function buildCell(bed, cellIdx) {
         e.stopPropagation();
         startDrag(e, cellData.type, 'cell', bed.id, cellIdx);
       });
+      el.addEventListener('mouseenter', () => showPlantTip(el, def));
+      el.addEventListener('mouseleave', hidePlantTip);
     }
   } else {
     el.classList.add('empty');
