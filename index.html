@@ -548,6 +548,14 @@ const PLANTS = [
     height: 'tall',   outdoorMonth: 4, companions: ['carrot','radish','lettuce','spinach','turnip'], avoid: ['onion','garlic'] },
   { id: 'edamame',       name: 'Edamame',       emoji: '🫘', perSqFt: 4,  color: '#1e8449', bg: '#e9f7ef', cat: 'Legumes',
     height: 'medium', outdoorMonth: 5, companions: ['carrot','cucumber','spinach'], avoid: ['onion','garlic'] },
+  { id: 'marigold',     name: 'Marigold',     emoji: '🌼', perSqFt: 4,  color: '#e67e22', bg: '#fef9e7', cat: 'Flowers',
+    height: 'low',    outdoorMonth: 5, companions: ['tomato','cherry_tomato','pepper','eggplant','cucumber','carrot','beans','zucchini'], avoid: [] },
+  { id: 'nasturtium',   name: 'Nasturtium',   emoji: '🌸', perSqFt: 4,  color: '#e74c3c', bg: '#fef0f0', cat: 'Flowers',
+    height: 'low',    outdoorMonth: 5, companions: ['cucumber','zucchini','tomato','beans','radish','cabbage','broccoli'], avoid: [] },
+  { id: 'borage',       name: 'Borage',       emoji: '🌺', perSqFt: 1,  color: '#7d3c98', bg: '#f5eef8', cat: 'Flowers',
+    height: 'medium', outdoorMonth: 5, companions: ['tomato','strawberry','cucumber','zucchini','beans','lettuce'], avoid: [] },
+  { id: 'lavender',     name: 'Lavender',     emoji: '💜', perSqFt: 1,  color: '#8e44ad', bg: '#f4ecf7', cat: 'Flowers',
+    height: 'medium', outdoorMonth: 5, companions: ['broccoli','cabbage','cauliflower','kale','thyme','rosemary'], avoid: [] },
 ];
 
 /* ── State ── */
@@ -770,6 +778,10 @@ const PLANT_TIMING = {
   broad_beans:   { preGerm: 0,  days: 90,  harvest:  4 },
   snap_peas:     { preGerm: 0,  days: 65,  harvest:  3 },
   edamame:       { preGerm: 0,  days: 85,  harvest:  3 },
+  marigold:      { preGerm: 4,  days: 55,  harvest: 18 },
+  nasturtium:    { preGerm: 0,  days: 50,  harvest: 18 },
+  borage:        { preGerm: 0,  days: 55,  harvest: 16 },
+  lavender:      { preGerm: 6,  days: 90,  harvest: 20 },
 };
 
 const SUCCESSION = {
@@ -1330,27 +1342,29 @@ function buildBedGuidance(bed) {
   if (legume && feeder)
     tips.push(`<div class="bed-guidance-item"><span class="bed-guidance-icon">🌿</span><span>${plantDef(legume).name} fixes nitrogen in the soil, giving ${plantDef(feeder).name} a boost</span></div>`);
 
-  // 5. Suggestion: one plant that would complement what's here
-  if (plantedIds.length < 5 && bed.cells.some(c => !c)) {
+  // 5. Suggestions: plants (incl. flowers) that would complement what's here
+  if (bed.cells.some(c => !c)) {
     const suggested = [];
-    plantedIds.forEach(id => {
-      const d = plantDef(id);
-      if (!d) return;
-      d.companions.forEach(cid => {
-        if (plantedIds.includes(cid) || suggested.includes(cid)) return;
-        const cd = plantDef(cid);
-        if (!cd) return;
-        // Only suggest if it conflicts with nothing already planted
-        const safe = !plantedIds.some(pid => {
-          const pd = plantDef(pid);
-          return pd && (pd.avoid.includes(cid) || cd.avoid.includes(pid));
-        });
-        if (safe) suggested.push(cid);
+    // Bidirectional: scan all PLANTS, not just companions of planted plants
+    PLANTS.forEach(candidate => {
+      if (plantedIds.includes(candidate.id) || suggested.includes(candidate.id)) return;
+      const isCompanion = plantedIds.some(pid => {
+        const pd = plantDef(pid);
+        return pd && (pd.companions.includes(candidate.id) || candidate.companions.includes(pid));
       });
+      if (!isCompanion) return;
+      const safe = !plantedIds.some(pid => {
+        const pd = plantDef(pid);
+        return pd && (pd.avoid.includes(candidate.id) || candidate.avoid.includes(pid));
+      });
+      if (safe) suggested.push(candidate.id);
     });
     if (suggested.length) {
-      const s = plantDef(suggested[0]);
-      tips.push(`<div class="bed-guidance-item"><span class="bed-guidance-icon">💡</span><span>Consider adding ${s.name} — a good companion for what's planted here</span></div>`);
+      const items = suggested.slice(0, 3).map(id => {
+        const d = plantDef(id);
+        return `${d.emoji} ${d.name}`;
+      }).join(' &nbsp;·&nbsp; ');
+      tips.push(`<div class="bed-guidance-item"><span class="bed-guidance-icon">💡</span><span>Try adding: ${items}</span></div>`);
     }
   }
 
