@@ -1274,6 +1274,8 @@ function initAuthModal() {
       <input id="auth-email" name="email" type="email" class="sf-select" placeholder="you@example.com" autocomplete="email">
       <label class="sf-label" for="auth-password" style="margin-top:10px">Password</label>
       <input id="auth-password" name="password" type="password" class="sf-select" placeholder="Password" autocomplete="current-password">
+      <label class="sf-label" for="auth-password2" id="auth-password2-label" style="margin-top:10px;display:none">Confirm password</label>
+      <input id="auth-password2" name="password2" type="password" class="sf-select" placeholder="Repeat password" autocomplete="new-password" style="display:none">
       <div id="auth-status" style="font-size:0.72rem;color:#888;min-height:18px;margin-top:8px"></div>
       <div class="sf-footer" style="margin-top:10px;flex-direction:column;gap:8px;align-items:stretch">
         <button type="submit" class="sf-btn primary" id="auth-submit" style="width:100%;justify-content:center">Sign in</button>
@@ -1295,6 +1297,10 @@ function initAuthModal() {
     document.getElementById('auth-toggle-link').textContent = m === 'signin' ? 'Create one' : 'Sign in';
     document.getElementById('auth-status').textContent = '';
     document.getElementById('auth-password').autocomplete = m === 'signin' ? 'current-password' : 'new-password';
+    const show = m === 'signup';
+    document.getElementById('auth-password2').style.display = show ? '' : 'none';
+    document.getElementById('auth-password2-label').style.display = show ? '' : 'none';
+    if (!show) document.getElementById('auth-password2').value = '';
   };
 
   document.getElementById('auth-toggle-link').addEventListener('click', () => setMode(mode === 'signin' ? 'signup' : 'signin'));
@@ -1304,6 +1310,10 @@ function initAuthModal() {
     const email = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-password').value;
     if (!email || !password) { document.getElementById('auth-status').textContent = 'Enter email and password.'; return; }
+    if (mode === 'signup') {
+      const pw2 = document.getElementById('auth-password2').value;
+      if (password !== pw2) { document.getElementById('auth-status').textContent = 'Passwords do not match.'; return; }
+    }
     document.getElementById('auth-status').textContent = mode === 'signin' ? 'Signing in…' : 'Creating account…';
     if (mode === 'signin') {
       const { error } = await sb.auth.signInWithPassword({ email, password });
