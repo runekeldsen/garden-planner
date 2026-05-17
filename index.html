@@ -450,8 +450,8 @@ body {
 .plan-legend-dot { width: 14px; height: 10px; border-radius: 2px; flex-shrink: 0; }
 .plan-empty { padding: 28px 18px; text-align: center; color: #aaa; font-size: 0.85rem; }
 
-/* ── Sync button ── */
-.sync-btn {
+/* ── Auth button ── */
+.auth-btn {
   background: rgba(255,255,255,0.15);
   color: white;
   border: 1px solid rgba(255,255,255,0.3);
@@ -462,17 +462,19 @@ body {
   white-space: nowrap;
   margin-left: 8px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
-.sync-btn:hover { background: rgba(255,255,255,0.25); }
-.sync-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #4caf50;
-  margin-right: 4px;
-  vertical-align: middle;
+.auth-btn:hover { background: rgba(255,255,255,0.25); }
+.auth-logout {
+  font-size: 0.62rem;
+  opacity: 0.7;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.35);
 }
+.auth-logout:hover { opacity: 1; background: rgba(255,255,255,0.15); }
 
 /* ── Responsive / Mobile ── */
 @media (max-width: 767px) {
@@ -508,6 +510,7 @@ body {
   .sf-card { width: 92vw; max-width: 92vw; }
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body>
 
@@ -517,7 +520,7 @@ body {
   <span class="sfg-tag">Square Foot Gardening</span>
   <span class="hint">Drag plants into squares &nbsp;·&nbsp; Each square = 1 sq ft &nbsp;·&nbsp; Number = plants per square &nbsp;·&nbsp; Hover + × to remove</span>
   <span style="font-size:0.6rem;opacity:0.45;margin-left:4px">Icons: <a href="https://openmoji.org" style="color:inherit">OpenMoji</a> CC BY-SA 4.0</span>
-  <button class="sync-btn" id="sync-open-btn" onclick="_openSyncModal()" title="Sync across devices">☁ Sync</button>
+  <button class="auth-btn" id="auth-open-btn" onclick="_openAuthModal()">Sign in</button>
 </div>
 
 <div class="layout">
@@ -671,6 +674,12 @@ let ghostEl = null;
 let sourcePaletteEl = null;
 let highlightedCellEl = null;
 
+/* ── Supabase ── */
+const SUPABASE_URL = 'https://xeivpxswngpsbmdlbbdu.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_kcOEtXtZNvLEZezZf9KWLA_3xGTy0Ca';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let currentUser = null;
+
 /* ── Persistence ── */
 function applyState(d) {
   if (Array.isArray(d.beds)) beds = d.beds;
@@ -694,53 +703,54 @@ function loadState() {
 function saveState() {
   lastModified = Date.now();
   localStorage.setItem('sfg-planner-v1', JSON.stringify({ beds, favPlants: [...favPlants], plantedDates, lastModified }));
-  syncToGist().catch(() => {});
+  pushToCloud().catch(() => {});
 }
 
-/* ── Gist sync ── */
-async function syncToGist() {
-  const pat = localStorage.getItem('sfg-gist-pat');
-  const gistId = localStorage.getItem('sfg-gist-id');
-  if (!pat || !gistId) return;
-  const payload = JSON.stringify({ beds, favPlants: [...favPlants], plantedDates, lastModified });
-  const res = await fetch(`https://api.github.com/gists/${gistId}`, {
-    method: 'PATCH',
-    headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' },
-    body: JSON.stringify({ files: { 'sfg-planner.json': { content: payload } } })
-  });
-  if (res.ok) {
-    updateSyncStatus('Synced ' + new Date().toLocaleTimeString());
-    setSyncIndicator(true);
+async function pushToCloud() {
+  if (!currentUser) return;
+  const payload = { beds, favPlants: [...favPlants], plantedDates, lastModified };
+  await sb.from('garden_plans').upsert({ user_id: currentUser.id, data: payload, updated_at: new Date().toISOString() });
+}
+
+async function pullFromCloud() {
+  if (!currentUser) return null;
+  const { data } = await sb.from('garden_plans').select('data').eq('user_id', currentUser.id).single();
+  return data ? data.data : null;
+}
+
+/* ── Auth ── */
+function updateHeaderAuth() {
+  const btn = document.getElementById('auth-open-btn');
+  if (!btn) return;
+  if (currentUser) {
+    const name = currentUser.email.split('@')[0];
+    btn.innerHTML = `👤 ${name} <span class="auth-logout" id="auth-logout-btn">sign out</span>`;
+    document.getElementById('auth-logout-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      sb.auth.signOut();
+    });
   } else {
-    updateSyncStatus('Sync error ' + res.status);
+    btn.textContent = 'Sign in';
   }
 }
 
-async function syncFromGist() {
-  const pat = localStorage.getItem('sfg-gist-pat');
-  const gistId = localStorage.getItem('sfg-gist-id');
-  if (!pat || !gistId) return null;
-  const res = await fetch(`https://api.github.com/gists/${gistId}`, {
-    headers: { Authorization: `Bearer ${pat}`, 'X-GitHub-Api-Version': '2022-11-28' }
-  });
-  if (!res.ok) return null;
-  const data = await res.json();
-  const file = data.files && data.files['sfg-planner.json'];
-  if (!file) return null;
-  return JSON.parse(file.content);
+async function onSignedIn(user) {
+  currentUser = user;
+  updateHeaderAuth();
+  const cloud = await pullFromCloud();
+  if (!cloud) {
+    showBedSetupModal();
+  } else if (cloud.lastModified > lastModified) {
+    applyState(cloud);
+    localStorage.setItem('sfg-planner-v1', JSON.stringify({ beds, favPlants: [...favPlants], plantedDates, lastModified }));
+    renderSidebar(); renderBeds(); renderPlanBody();
+  }
+  document.getElementById('auth-overlay').classList.add('hidden');
 }
 
-function updateSyncStatus(msg) {
-  const el = document.getElementById('sync-status');
-  if (el) el.textContent = msg;
-}
-
-function setSyncIndicator(connected) {
-  const btn = document.getElementById('sync-open-btn');
-  if (!btn) return;
-  btn.innerHTML = connected
-    ? '<span class="sync-dot"></span>☁ Sync'
-    : '☁ Sync';
+function onSignedOut() {
+  currentUser = null;
+  updateHeaderAuth();
 }
 
 /* ── Helpers ── */
@@ -1252,93 +1262,116 @@ function initSfModal() {
   document.getElementById('sf-apply').addEventListener('click', applySfFill);
 }
 
-/* ── Sync modal ── */
-function initSyncModal() {
+/* ── Auth modal ── */
+function initAuthModal() {
   const el = document.createElement('div');
-  el.id = 'sync-overlay';
+  el.id = 'auth-overlay';
   el.className = 'sf-overlay hidden';
-  el.innerHTML = `<div class="sf-card">
-    <div class="sf-title">☁ Cloud Sync</div>
-    <p style="font-size:0.75rem;color:#666;margin-bottom:12px">Sync your garden plan across devices using a private GitHub Gist.<br>Paste your GitHub Personal Access Token (needs <strong>gist</strong> scope) and a Gist ID — or create a new Gist below.</p>
-    <label class="sf-label" for="sync-pat">GitHub Personal Access Token</label>
-    <input id="sync-pat" type="password" class="sf-select" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off" spellcheck="false">
-    <label class="sf-label" for="sync-gist-id" style="margin-top:10px">Gist ID</label>
-    <input id="sync-gist-id" type="text" class="sf-select" placeholder="Leave blank to create a new Gist →" autocomplete="off" spellcheck="false">
-    <div id="sync-status" style="font-size:0.7rem;color:#888;min-height:18px;margin-top:8px"></div>
-    <div class="sf-footer" style="margin-top:10px;flex-wrap:wrap;gap:6px">
-      <button class="sf-btn" id="sync-close">Close</button>
-      <button class="sf-btn" id="sync-create">Create new Gist</button>
-      <button class="sf-btn" id="sync-pull">Pull from Gist</button>
-      <button class="sf-btn primary" id="sync-save">Save & Sync now</button>
+  el.innerHTML = `<div class="sf-card" style="width:340px">
+    <div class="sf-title" id="auth-title">Sign in to your garden</div>
+    <label class="sf-label" for="auth-email" style="margin-top:4px">Email</label>
+    <input id="auth-email" type="email" class="sf-select" placeholder="you@example.com" autocomplete="email">
+    <label class="sf-label" for="auth-password" style="margin-top:10px">Password</label>
+    <input id="auth-password" type="password" class="sf-select" placeholder="Password" autocomplete="current-password">
+    <div id="auth-status" style="font-size:0.72rem;color:#888;min-height:18px;margin-top:8px"></div>
+    <div class="sf-footer" style="margin-top:10px;flex-direction:column;gap:8px;align-items:stretch">
+      <button class="sf-btn primary" id="auth-submit" style="width:100%;justify-content:center">Sign in</button>
+      <div style="text-align:center;font-size:0.72rem;color:#888">
+        <span id="auth-toggle-text">No account?</span>
+        <span id="auth-toggle-link" style="color:#2c5f2e;cursor:pointer;text-decoration:underline;margin-left:4px">Create one</span>
+      </div>
     </div>
   </div>`;
   document.body.appendChild(el);
 
-  document.getElementById('sync-close').addEventListener('click', () => el.classList.add('hidden'));
-  el.addEventListener('click', e => { if (e.target === el) el.classList.add('hidden'); });
+  let mode = 'signin';
+  const setMode = m => {
+    mode = m;
+    document.getElementById('auth-title').textContent = m === 'signin' ? 'Sign in to your garden' : 'Create your account';
+    document.getElementById('auth-submit').textContent = m === 'signin' ? 'Sign in' : 'Create account';
+    document.getElementById('auth-toggle-text').textContent = m === 'signin' ? 'No account?' : 'Already have one?';
+    document.getElementById('auth-toggle-link').textContent = m === 'signin' ? 'Create one' : 'Sign in';
+    document.getElementById('auth-status').textContent = '';
+    const pwd = document.getElementById('auth-password');
+    pwd.autocomplete = m === 'signin' ? 'current-password' : 'new-password';
+  };
 
-  document.getElementById('sync-create').addEventListener('click', async () => {
-    const pat = document.getElementById('sync-pat').value.trim();
-    if (!pat) { updateSyncStatus('Enter a PAT first.'); return; }
-    updateSyncStatus('Creating Gist…');
-    try {
-      const payload = JSON.stringify({ beds, favPlants: [...favPlants], plantedDates, lastModified });
-      const res = await fetch('https://api.github.com/gists', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' },
-        body: JSON.stringify({ description: 'Garden Bed Planner — sfg-planner sync', public: false, files: { 'sfg-planner.json': { content: payload } } })
-      });
-      if (!res.ok) { updateSyncStatus('Error ' + res.status + ': check your PAT has gist scope'); return; }
-      const data = await res.json();
-      document.getElementById('sync-gist-id').value = data.id;
-      localStorage.setItem('sfg-gist-pat', pat);
-      localStorage.setItem('sfg-gist-id', data.id);
-      setSyncIndicator(true);
-      updateSyncStatus('✓ Gist created! Copy the Gist ID (' + data.id + ') to other devices.');
-    } catch (e) { updateSyncStatus('Error: ' + e.message); }
+  document.getElementById('auth-toggle-link').addEventListener('click', () => setMode(mode === 'signin' ? 'signup' : 'signin'));
+
+  document.getElementById('auth-submit').addEventListener('click', async () => {
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    if (!email || !password) { document.getElementById('auth-status').textContent = 'Enter email and password.'; return; }
+    document.getElementById('auth-status').textContent = mode === 'signin' ? 'Signing in…' : 'Creating account…';
+    if (mode === 'signin') {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) document.getElementById('auth-status').textContent = error.message;
+    } else {
+      const { error } = await sb.auth.signUp({ email, password });
+      if (error) document.getElementById('auth-status').textContent = error.message;
+      else document.getElementById('auth-status').textContent = '✓ Check your email to confirm, then sign in.';
+    }
   });
 
-  document.getElementById('sync-save').addEventListener('click', async () => {
-    const pat = document.getElementById('sync-pat').value.trim();
-    const gistId = document.getElementById('sync-gist-id').value.trim();
-    if (!pat || !gistId) { updateSyncStatus('Enter both PAT and Gist ID.'); return; }
-    localStorage.setItem('sfg-gist-pat', pat);
-    localStorage.setItem('sfg-gist-id', gistId);
-    updateSyncStatus('Checking Gist…');
-    try {
-      const cloud = await syncFromGist();
-      if (cloud && cloud.lastModified > lastModified) {
-        applyState(cloud);
-        localStorage.setItem('sfg-planner-v1', JSON.stringify({ beds, favPlants: [...favPlants], plantedDates, lastModified }));
-        renderSidebar(); renderBeds(); renderPlanBody();
-        setSyncIndicator(true);
-        updateSyncStatus('✓ Pulled newer data from Gist (' + new Date(cloud.lastModified).toLocaleTimeString() + ')');
-      } else {
-        await syncToGist();
-      }
-    } catch(e) { updateSyncStatus('Error: ' + e.message); }
+  document.getElementById('auth-password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('auth-submit').click();
   });
 
-  document.getElementById('sync-pull').addEventListener('click', async () => {
-    updateSyncStatus('Pulling from Gist…');
-    try {
-      const cloud = await syncFromGist();
-      if (!cloud) { updateSyncStatus('Nothing found in Gist.'); return; }
-      applyState(cloud);
-      localStorage.setItem('sfg-planner-v1', JSON.stringify({ beds, favPlants: [...favPlants], plantedDates, lastModified }));
-      renderSidebar(); renderBeds(); renderPlanBody();
-      setSyncIndicator(true);
-      updateSyncStatus('✓ Pulled from Gist (' + new Date(cloud.lastModified).toLocaleTimeString() + ')');
-    } catch(e) { updateSyncStatus('Error: ' + e.message); }
-  });
-
-  window._openSyncModal = () => {
-    document.getElementById('sync-pat').value = localStorage.getItem('sfg-gist-pat') || '';
-    document.getElementById('sync-gist-id').value = localStorage.getItem('sfg-gist-id') || '';
-    const gistId = localStorage.getItem('sfg-gist-id');
-    updateSyncStatus(gistId ? 'Connected to Gist ' + gistId : 'Not configured — create or enter a Gist ID');
+  window._openAuthModal = () => {
+    if (currentUser) return;
+    setMode('signin');
     el.classList.remove('hidden');
   };
+}
+
+/* ── Bed setup modal (first-time) ── */
+function showBedSetupModal() {
+  const existing = document.getElementById('bedsetup-overlay');
+  if (existing) existing.remove();
+
+  const el = document.createElement('div');
+  el.id = 'bedsetup-overlay';
+  el.className = 'sf-overlay';
+  el.innerHTML = `<div class="sf-card" style="width:380px">
+    <div class="sf-title">🌱 Welcome! Set up your garden</div>
+    <p style="font-size:0.75rem;color:#666;margin:6px 0 14px">How many raised beds do you have?</p>
+    <div id="bedsetup-counts" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      ${[1,2,3,4,6,8].map(n => `<button class="sf-btn bedcount-btn" data-n="${n}" style="min-width:44px;font-size:0.9rem;font-weight:600">${n}</button>`).join('')}
+    </div>
+    <div id="bedsetup-names" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px"></div>
+    <div class="sf-footer" style="margin-top:4px">
+      <button class="sf-btn primary" id="bedsetup-start" style="width:100%;justify-content:center">Start planning →</button>
+    </div>
+  </div>`;
+  document.body.appendChild(el);
+
+  let chosenCount = 4;
+  const namesEl = document.getElementById('bedsetup-names');
+
+  const selectCount = n => {
+    chosenCount = n;
+    el.querySelectorAll('.bedcount-btn').forEach(b => {
+      b.style.background = +b.dataset.n === n ? '#2c5f2e' : '';
+      b.style.color = +b.dataset.n === n ? 'white' : '';
+      b.style.borderColor = +b.dataset.n === n ? '#2c5f2e' : '';
+    });
+    namesEl.innerHTML = Array.from({ length: n }, (_, i) =>
+      `<input class="sf-select bedname-input" data-i="${i}" value="Bed ${i+1}" style="margin-bottom:0">`
+    ).join('');
+  };
+
+  el.querySelectorAll('.bedcount-btn').forEach(b => b.addEventListener('click', () => selectCount(+b.dataset.n)));
+  selectCount(4);
+
+  document.getElementById('bedsetup-start').addEventListener('click', () => {
+    const names = [...el.querySelectorAll('.bedname-input')].map(i => i.value.trim() || `Bed ${+i.dataset.i + 1}`);
+    beds = Array.from({ length: chosenCount }, (_, i) => ({
+      id: i, name: names[i], cells: Array(GRID_TOTAL).fill(null)
+    }));
+    saveState();
+    renderBeds();
+    el.remove();
+  });
 }
 
 /* ── Drag engine ── */
@@ -1886,21 +1919,21 @@ renderSidebar();
 renderBeds();
 initPlanSection();
 initSfModal();
-initSyncModal();
-// On startup, prefer cloud state if it's newer than what's in localStorage
-syncFromGist().then(cloud => {
-  if (!cloud) return;
-  if (cloud.lastModified > lastModified) {
-    applyState(cloud);
-    localStorage.setItem('sfg-planner-v1', JSON.stringify({ beds, favPlants: [...favPlants], plantedDates, lastModified }));
-    renderSidebar();
-    renderBeds();
-    renderPlanBody();
-    setSyncIndicator(true);
-  } else {
-    setSyncIndicator(true);
+initAuthModal();
+
+// Auth state listener — fires on page load if session exists, and on sign in/out
+sb.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN' && session?.user) {
+    onSignedIn(session.user);
+  } else if (event === 'SIGNED_OUT') {
+    onSignedOut();
   }
-}).catch(() => {});
+});
+
+// Restore session on load (e.g. returning user with valid token)
+sb.auth.getSession().then(({ data: { session } }) => {
+  if (session?.user) onSignedIn(session.user);
+});
 </script>
 </body>
 </html>
