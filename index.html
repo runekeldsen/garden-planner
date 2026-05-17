@@ -450,6 +450,30 @@ body {
 .plan-legend-dot { width: 14px; height: 10px; border-radius: 2px; flex-shrink: 0; }
 .plan-empty { padding: 28px 18px; text-align: center; color: #aaa; font-size: 0.85rem; }
 
+/* ── Sync button ── */
+.sync-btn {
+  background: rgba(255,255,255,0.15);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  white-space: nowrap;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+.sync-btn:hover { background: rgba(255,255,255,0.25); }
+.sync-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4caf50;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
 /* ── Responsive / Mobile ── */
 @media (max-width: 767px) {
   body { height: 100vh; overflow: hidden; }
@@ -493,6 +517,7 @@ body {
   <span class="sfg-tag">Square Foot Gardening</span>
   <span class="hint">Drag plants into squares &nbsp;·&nbsp; Each square = 1 sq ft &nbsp;·&nbsp; Number = plants per square &nbsp;·&nbsp; Hover + × to remove</span>
   <span style="font-size:0.6rem;opacity:0.45;margin-left:4px">Icons: <a href="https://openmoji.org" style="color:inherit">OpenMoji</a> CC BY-SA 4.0</span>
+  <button class="sync-btn" id="sync-open-btn" onclick="_openSyncModal()" title="Sync across devices">☁ Sync</button>
 </div>
 
 <div class="layout">
@@ -638,6 +663,7 @@ let beds = Array.from({ length: 4 }, (_, i) => ({
 /* ── Marked plants (used by Smart Fill when non-empty) ── */
 let favPlants = new Set();
 let plantedDates = {}; // plantId → 'YYYY-MM-DD'
+let lastModified = 0;
 
 /* ── Drag state ── */
 let drag = null; // { plantId, source:'palette'|'cell', srcBedId?, srcCellIdx? }
@@ -646,25 +672,75 @@ let sourcePaletteEl = null;
 let highlightedCellEl = null;
 
 /* ── Persistence ── */
+function applyState(d) {
+  if (Array.isArray(d.beds)) beds = d.beds;
+  if (Array.isArray(d.favPlants)) favPlants = new Set(d.favPlants);
+  if (d.plantedDates && typeof d.plantedDates === 'object') plantedDates = d.plantedDates;
+  if (typeof d.lastModified === 'number') lastModified = d.lastModified;
+  beds.forEach(b => {
+    if (!Array.isArray(b.cells) || b.cells.length !== GRID_TOTAL) {
+      b.cells = Array(GRID_TOTAL).fill(null);
+    }
+  });
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem('sfg-planner-v1');
-    if (raw) {
-      const d = JSON.parse(raw);
-      if (Array.isArray(d.beds)) beds = d.beds;
-      if (Array.isArray(d.favPlants)) favPlants = new Set(d.favPlants);
-      if (d.plantedDates && typeof d.plantedDates === 'object') plantedDates = d.plantedDates;
-      // Ensure cells array is the right length (backwards compat)
-      beds.forEach(b => {
-        if (!Array.isArray(b.cells) || b.cells.length !== GRID_TOTAL) {
-          b.cells = Array(GRID_TOTAL).fill(null);
-        }
-      });
-    }
+    if (raw) applyState(JSON.parse(raw));
   } catch (_) {}
 }
+
 function saveState() {
-  localStorage.setItem('sfg-planner-v1', JSON.stringify({ beds, favPlants: [...favPlants], plantedDates }));
+  lastModified = Date.now();
+  localStorage.setItem('sfg-planner-v1', JSON.stringify({ beds, favPlants: [...favPlants], plantedDates, lastModified }));
+  syncToGist().catch(() => {});
+}
+
+/* ── Gist sync ── */
+async function syncToGist() {
+  const pat = localStorage.getItem('sfg-gist-pat');
+  const gistId = localStorage.getItem('sfg-gist-id');
+  if (!pat || !gistId) return;
+  const payload = JSON.stringify({ beds, favPlants: [...favPlants], plantedDates, lastModified });
+  const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' },
+    body: JSON.stringify({ files: { 'sfg-planner.json': { content: payload } } })
+  });
+  if (res.ok) {
+    updateSyncStatus('Synced ' + new Date().toLocaleTimeString());
+    setSyncIndicator(true);
+  } else {
+    updateSyncStatus('Sync error ' + res.status);
+  }
+}
+
+async function syncFromGist() {
+  const pat = localStorage.getItem('sfg-gist-pat');
+  const gistId = localStorage.getItem('sfg-gist-id');
+  if (!pat || !gistId) return null;
+  const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+    headers: { Authorization: `Bearer ${pat}`, 'X-GitHub-Api-Version': '2022-11-28' }
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const file = data.files && data.files['sfg-planner.json'];
+  if (!file) return null;
+  return JSON.parse(file.content);
+}
+
+function updateSyncStatus(msg) {
+  const el = document.getElementById('sync-status');
+  if (el) el.textContent = msg;
+}
+
+function setSyncIndicator(connected) {
+  const btn = document.getElementById('sync-open-btn');
+  if (!btn) return;
+  btn.innerHTML = connected
+    ? '<span class="sync-dot"></span>☁ Sync'
+    : '☁ Sync';
 }
 
 /* ── Helpers ── */
@@ -1174,6 +1250,70 @@ function initSfModal() {
   document.getElementById('sf-month').addEventListener('change', refreshSfPreview);
   document.getElementById('sf-shuffle').addEventListener('click', refreshSfPreview);
   document.getElementById('sf-apply').addEventListener('click', applySfFill);
+}
+
+/* ── Sync modal ── */
+function initSyncModal() {
+  const el = document.createElement('div');
+  el.id = 'sync-overlay';
+  el.className = 'sf-overlay hidden';
+  el.innerHTML = `<div class="sf-card">
+    <div class="sf-title">☁ Cloud Sync</div>
+    <p style="font-size:0.75rem;color:#666;margin-bottom:12px">Sync your garden plan across devices using a private GitHub Gist.<br>Paste your GitHub Personal Access Token (needs <strong>gist</strong> scope) and a Gist ID — or create a new Gist below.</p>
+    <label class="sf-label" for="sync-pat">GitHub Personal Access Token</label>
+    <input id="sync-pat" type="password" class="sf-select" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off" spellcheck="false">
+    <label class="sf-label" for="sync-gist-id" style="margin-top:10px">Gist ID</label>
+    <input id="sync-gist-id" type="text" class="sf-select" placeholder="Leave blank to create a new Gist →" autocomplete="off" spellcheck="false">
+    <div id="sync-status" style="font-size:0.7rem;color:#888;min-height:18px;margin-top:8px"></div>
+    <div class="sf-footer" style="margin-top:10px">
+      <button class="sf-btn" id="sync-close">Close</button>
+      <button class="sf-btn" id="sync-create">Create new Gist</button>
+      <button class="sf-btn primary" id="sync-save">Save & Sync now</button>
+    </div>
+  </div>`;
+  document.body.appendChild(el);
+
+  document.getElementById('sync-close').addEventListener('click', () => el.classList.add('hidden'));
+  el.addEventListener('click', e => { if (e.target === el) el.classList.add('hidden'); });
+
+  document.getElementById('sync-create').addEventListener('click', async () => {
+    const pat = document.getElementById('sync-pat').value.trim();
+    if (!pat) { updateSyncStatus('Enter a PAT first.'); return; }
+    updateSyncStatus('Creating Gist…');
+    try {
+      const payload = JSON.stringify({ beds, favPlants: [...favPlants], plantedDates, lastModified });
+      const res = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' },
+        body: JSON.stringify({ description: 'Garden Bed Planner — sfg-planner sync', public: false, files: { 'sfg-planner.json': { content: payload } } })
+      });
+      if (!res.ok) { updateSyncStatus('Error ' + res.status + ': check your PAT has gist scope'); return; }
+      const data = await res.json();
+      document.getElementById('sync-gist-id').value = data.id;
+      localStorage.setItem('sfg-gist-pat', pat);
+      localStorage.setItem('sfg-gist-id', data.id);
+      setSyncIndicator(true);
+      updateSyncStatus('✓ Gist created! Copy the Gist ID (' + data.id + ') to other devices.');
+    } catch (e) { updateSyncStatus('Error: ' + e.message); }
+  });
+
+  document.getElementById('sync-save').addEventListener('click', async () => {
+    const pat = document.getElementById('sync-pat').value.trim();
+    const gistId = document.getElementById('sync-gist-id').value.trim();
+    if (!pat || !gistId) { updateSyncStatus('Enter both PAT and Gist ID.'); return; }
+    localStorage.setItem('sfg-gist-pat', pat);
+    localStorage.setItem('sfg-gist-id', gistId);
+    updateSyncStatus('Syncing…');
+    await syncToGist().catch(e => updateSyncStatus('Error: ' + e.message));
+  });
+
+  window._openSyncModal = () => {
+    document.getElementById('sync-pat').value = localStorage.getItem('sfg-gist-pat') || '';
+    document.getElementById('sync-gist-id').value = localStorage.getItem('sfg-gist-id') || '';
+    const gistId = localStorage.getItem('sfg-gist-id');
+    updateSyncStatus(gistId ? 'Connected to Gist ' + gistId : 'Not configured — create or enter a Gist ID');
+    el.classList.remove('hidden');
+  };
 }
 
 /* ── Drag engine ── */
@@ -1721,6 +1861,21 @@ renderSidebar();
 renderBeds();
 initPlanSection();
 initSfModal();
+initSyncModal();
+// On startup, prefer cloud state if it's newer than what's in localStorage
+syncFromGist().then(cloud => {
+  if (!cloud) return;
+  if (cloud.lastModified > lastModified) {
+    applyState(cloud);
+    localStorage.setItem('sfg-planner-v1', JSON.stringify({ beds, favPlants: [...favPlants], plantedDates, lastModified }));
+    renderSidebar();
+    renderBeds();
+    renderPlanBody();
+    setSyncIndicator(true);
+  } else {
+    setSyncIndicator(true);
+  }
+}).catch(() => {});
 </script>
 </body>
 </html>
