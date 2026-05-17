@@ -679,6 +679,7 @@ const SUPABASE_URL = 'https://xeivpxswngpsbmdlbbdu.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_kcOEtXtZNvLEZezZf9KWLA_3xGTy0Ca';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let currentUser = null;
+let syncTimer   = null;
 
 /* ── Persistence ── */
 function applyState(d) {
@@ -746,11 +747,26 @@ async function onSignedIn(user) {
     renderSidebar(); renderBeds(); renderPlanBody();
   }
   document.getElementById('auth-overlay').classList.add('hidden');
+  startAutoSync();
 }
 
 function onSignedOut() {
   currentUser = null;
   updateHeaderAuth();
+  clearInterval(syncTimer);
+  syncTimer = null;
+}
+
+function startAutoSync() {
+  clearInterval(syncTimer);
+  syncTimer = setInterval(async () => {
+    const cloud = await pullFromCloud();
+    if (cloud && cloud.lastModified > lastModified) {
+      applyState(cloud);
+      localStorage.setItem('sfg-planner-v1', JSON.stringify({ beds, favPlants: [...favPlants], plantedDates, lastModified }));
+      renderSidebar(); renderBeds(); renderPlanBody();
+    }
+  }, 30000);
 }
 
 /* ── Helpers ── */
