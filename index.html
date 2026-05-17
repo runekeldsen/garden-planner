@@ -1269,18 +1269,20 @@ function initAuthModal() {
   el.className = 'sf-overlay hidden';
   el.innerHTML = `<div class="sf-card" style="width:340px">
     <div class="sf-title" id="auth-title">Sign in to your garden</div>
-    <label class="sf-label" for="auth-email" style="margin-top:4px">Email</label>
-    <input id="auth-email" type="email" class="sf-select" placeholder="you@example.com" autocomplete="email">
-    <label class="sf-label" for="auth-password" style="margin-top:10px">Password</label>
-    <input id="auth-password" type="password" class="sf-select" placeholder="Password" autocomplete="current-password">
-    <div id="auth-status" style="font-size:0.72rem;color:#888;min-height:18px;margin-top:8px"></div>
-    <div class="sf-footer" style="margin-top:10px;flex-direction:column;gap:8px;align-items:stretch">
-      <button class="sf-btn primary" id="auth-submit" style="width:100%;justify-content:center">Sign in</button>
-      <div style="text-align:center;font-size:0.72rem;color:#888">
-        <span id="auth-toggle-text">No account?</span>
-        <span id="auth-toggle-link" style="color:#2c5f2e;cursor:pointer;text-decoration:underline;margin-left:4px">Create one</span>
+    <form id="auth-form" autocomplete="on" style="display:contents">
+      <label class="sf-label" for="auth-email" style="margin-top:4px">Email</label>
+      <input id="auth-email" name="email" type="email" class="sf-select" placeholder="you@example.com" autocomplete="email">
+      <label class="sf-label" for="auth-password" style="margin-top:10px">Password</label>
+      <input id="auth-password" name="password" type="password" class="sf-select" placeholder="Password" autocomplete="current-password">
+      <div id="auth-status" style="font-size:0.72rem;color:#888;min-height:18px;margin-top:8px"></div>
+      <div class="sf-footer" style="margin-top:10px;flex-direction:column;gap:8px;align-items:stretch">
+        <button type="submit" class="sf-btn primary" id="auth-submit" style="width:100%;justify-content:center">Sign in</button>
+        <div style="text-align:center;font-size:0.72rem;color:#888">
+          <span id="auth-toggle-text">No account?</span>
+          <span id="auth-toggle-link" style="color:#2c5f2e;cursor:pointer;text-decoration:underline;margin-left:4px">Create one</span>
+        </div>
       </div>
-    </div>
+    </form>
   </div>`;
   document.body.appendChild(el);
 
@@ -1292,13 +1294,13 @@ function initAuthModal() {
     document.getElementById('auth-toggle-text').textContent = m === 'signin' ? 'No account?' : 'Already have one?';
     document.getElementById('auth-toggle-link').textContent = m === 'signin' ? 'Create one' : 'Sign in';
     document.getElementById('auth-status').textContent = '';
-    const pwd = document.getElementById('auth-password');
-    pwd.autocomplete = m === 'signin' ? 'current-password' : 'new-password';
+    document.getElementById('auth-password').autocomplete = m === 'signin' ? 'current-password' : 'new-password';
   };
 
   document.getElementById('auth-toggle-link').addEventListener('click', () => setMode(mode === 'signin' ? 'signup' : 'signin'));
 
-  document.getElementById('auth-submit').addEventListener('click', async () => {
+  document.getElementById('auth-form').addEventListener('submit', async e => {
+    e.preventDefault();
     const email = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-password').value;
     if (!email || !password) { document.getElementById('auth-status').textContent = 'Enter email and password.'; return; }
@@ -1311,10 +1313,6 @@ function initAuthModal() {
       if (error) document.getElementById('auth-status').textContent = error.message;
       else document.getElementById('auth-status').textContent = '✓ Check your email to confirm, then sign in.';
     }
-  });
-
-  document.getElementById('auth-password').addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('auth-submit').click();
   });
 
   window._openAuthModal = () => {
