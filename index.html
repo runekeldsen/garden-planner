@@ -1265,9 +1265,10 @@ function initSyncModal() {
     <label class="sf-label" for="sync-gist-id" style="margin-top:10px">Gist ID</label>
     <input id="sync-gist-id" type="text" class="sf-select" placeholder="Leave blank to create a new Gist →" autocomplete="off" spellcheck="false">
     <div id="sync-status" style="font-size:0.7rem;color:#888;min-height:18px;margin-top:8px"></div>
-    <div class="sf-footer" style="margin-top:10px">
+    <div class="sf-footer" style="margin-top:10px;flex-wrap:wrap;gap:6px">
       <button class="sf-btn" id="sync-close">Close</button>
       <button class="sf-btn" id="sync-create">Create new Gist</button>
+      <button class="sf-btn" id="sync-pull">Pull from Gist</button>
       <button class="sf-btn primary" id="sync-save">Save & Sync now</button>
     </div>
   </div>`;
@@ -1303,8 +1304,32 @@ function initSyncModal() {
     if (!pat || !gistId) { updateSyncStatus('Enter both PAT and Gist ID.'); return; }
     localStorage.setItem('sfg-gist-pat', pat);
     localStorage.setItem('sfg-gist-id', gistId);
-    updateSyncStatus('Syncing…');
-    await syncToGist().catch(e => updateSyncStatus('Error: ' + e.message));
+    updateSyncStatus('Checking Gist…');
+    try {
+      const cloud = await syncFromGist();
+      if (cloud && cloud.lastModified > lastModified) {
+        applyState(cloud);
+        localStorage.setItem('sfg-planner-v1', JSON.stringify({ beds, favPlants: [...favPlants], plantedDates, lastModified }));
+        renderSidebar(); renderBeds(); renderPlanBody();
+        setSyncIndicator(true);
+        updateSyncStatus('✓ Pulled newer data from Gist (' + new Date(cloud.lastModified).toLocaleTimeString() + ')');
+      } else {
+        await syncToGist();
+      }
+    } catch(e) { updateSyncStatus('Error: ' + e.message); }
+  });
+
+  document.getElementById('sync-pull').addEventListener('click', async () => {
+    updateSyncStatus('Pulling from Gist…');
+    try {
+      const cloud = await syncFromGist();
+      if (!cloud) { updateSyncStatus('Nothing found in Gist.'); return; }
+      applyState(cloud);
+      localStorage.setItem('sfg-planner-v1', JSON.stringify({ beds, favPlants: [...favPlants], plantedDates, lastModified }));
+      renderSidebar(); renderBeds(); renderPlanBody();
+      setSyncIndicator(true);
+      updateSyncStatus('✓ Pulled from Gist (' + new Date(cloud.lastModified).toLocaleTimeString() + ')');
+    } catch(e) { updateSyncStatus('Error: ' + e.message); }
   });
 
   window._openSyncModal = () => {
